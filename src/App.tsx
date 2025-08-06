@@ -10,7 +10,7 @@ const TherapistDashboard = React.lazy(() => import('./pages/TherapistDashboard')
 const ClientDashboard = React.lazy(() => import('./pages/ClientDashboard').then(module => ({ default: module.ClientDashboard })))
 
 function App() {
-  const { user, profile, loading } = useAuth()
+  const { user, profile, loading, error } = useAuth()
 
   if (loading) {
     return (
@@ -18,6 +18,9 @@ function App() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading CogniFlow...</p>
+          {error && (
+            <p className="text-red-600 text-sm mt-2">Error: {error}</p>
+          )}
         </div>
       </div>
     )

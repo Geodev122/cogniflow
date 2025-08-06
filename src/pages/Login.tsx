@@ -10,7 +10,7 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const { user, profile, signIn } = useAuth()
+  const { user, profile, signIn, error: authError } = useAuth()
 
   // Redirect if already logged in
   if (user && profile) {
@@ -30,6 +30,9 @@ export const Login: React.FC = () => {
       setLoading(false)
     }
   }
+
+  // Show auth errors
+  const displayError = error || authError
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-teal-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -90,9 +93,9 @@ export const Login: React.FC = () => {
             </div>
           </div>
 
-          {error && (
+          {displayError && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
-              {error}
+              {displayError}
             </div>
           )}
 
