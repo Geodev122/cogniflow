@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
@@ -16,54 +16,10 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    // Get initial session
-    const getInitialSession = async () => {
-      try {
-        setError(null)
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (session?.user) {
-          setUser(session.user)
-          await fetchProfile(session.user.id)
-        } else {
-          setUser(null)
-          setProfile(null)
-        }
-      } catch (error) {
-        console.error('Error getting session:', error)
-        setError('Failed to load session')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    getInitialSession()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.email)
-        setError(null)
-        
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user)
-          await fetchProfile(session.user.id)
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null)
-          setProfile(null)
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
-  }, [])
-
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = useCallback(async (userId: string) => {
     try {
       console.log('Fetching profile for user:', userId)
       
-      // First, let's check if the user exists in profiles table
       const { data, error } = await supabase
         .from('profiles')
         .select('id, role, first_name, last_name, email')
@@ -73,108 +29,152 @@ export const useAuth = () => {
       if (error) {
         console.error('Profile fetch error:', error)
         
-        // If profile doesn't exist, try to create one
         if (error.code === 'PGRST116') {
-          console.log('Profile not found, attempting to create one...')
-          await createMissingProfile(userId)
+          console.log('Profile not found, user needs to complete registration')
+          setProfile(null)
           return
         }
         
-        setError(`Profile fetch failed: ${error.message}`)
-        return
+        throw error
       }
       
-      if (data) {
-        console.log('Profile loaded successfully:', data)
-        setProfile(data)
-      } else {
-        console.log('No profile data returned')
-        setError('No profile data found')
-      }
+      console.log('Profile loaded successfully:', data)
+      setProfile(data)
     } catch (error) {
       console.error('Error fetching profile:', error)
-      setError('Unexpected error fetching profile')
+      setError('Failed to load profile')
+      setProfile(null)
     }
-  }
+  }, [])
 
-  const createMissingProfile = async (userId: string) => {
-    try {
-      // Get user info from auth
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (!user) {
-        setError('User not found in auth')
-        return
+  useEffect(() => {
+    let mounted = true
+    
+    const initializeAuth = async () => {
+      try {
+        setError(null)
+        
+        // Get initial session with timeout
+        const sessionPromise = supabase.auth.getSession()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session timeout')), 10000)
+        )
+        
+        const { data: { session } } = await Promise.race([
+          sessionPromise,
+          timeoutPromise
+        ]) as any
+        
+        if (!mounted) return
+        
+        if (session?.user) {
+          setUser(session.user)
+          await fetchProfile(session.user.id)
+        } else {
+          setUser(null)
+          setProfile(null)
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error)
+        if (mounted) {
+          setError('Failed to initialize authentication')
+          setUser(null)
+          setProfile(null)
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
       }
-
-      console.log('Creating missing profile for:', user.email)
-      
-      // Create a basic profile
-      const { data, error } = await supabase
-        .from('profiles')
-        .insert({
-          id: userId,
-          role: 'client', // Default role
-          first_name: user.user_metadata?.first_name || 'User',
-          last_name: user.user_metadata?.last_name || 'Name',
-          email: user.email || ''
-        })
-        .select()
-        .single()
-
-      if (error) {
-        console.error('Error creating profile:', error)
-        setError(`Failed to create profile: ${error.message}`)
-        return
-      }
-
-      if (data) {
-        console.log('Profile created successfully:', data)
-        setProfile(data)
-      }
-    } catch (error) {
-      console.error('Error creating missing profile:', error)
-      setError('Failed to create missing profile')
     }
-  }
+
+    initializeAuth()
+
+    // Listen for auth changes with debouncing
+    let authTimeout: NodeJS.Timeout
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return
+        
+        clearTimeout(authTimeout)
+        authTimeout = setTimeout(async () => {
+          console.log('Auth state change:', event)
+          setError(null)
+          
+          try {
+            if (event === 'SIGNED_IN' && session?.user) {
+              setUser(session.user)
+              await fetchProfile(session.user.id)
+            } else if (event === 'SIGNED_OUT') {
+              setUser(null)
+              setProfile(null)
+            }
+          } catch (error) {
+            console.error('Auth state change error:', error)
+            setError('Authentication error occurred')
+          }
+        }, 100)
+      }
+    )
+
+    return () => {
+      mounted = false
+      clearTimeout(authTimeout)
+      subscription.unsubscribe()
+    }
+  }, [fetchProfile])
 
   const signIn = async (email: string, password: string) => {
     setError(null)
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    if (error) throw error
+    setLoading(true)
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      if (error) throw error
+    } catch (error) {
+      setLoading(false)
+      throw error
+    }
   }
 
   const signUp = async (email: string, password: string, firstName: string, lastName: string, role: 'therapist' | 'client') => {
     setError(null)
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: firstName,
-          last_name: lastName,
-          role: role
+    setLoading(true)
+    
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: firstName,
+            last_name: lastName,
+            role: role
+          }
         }
-      }
-    })
-    
-    if (error) throw error
-    
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email,
-          first_name: firstName,
-          last_name: lastName,
-          role,
-        })
+      })
       
-      if (profileError) throw profileError
+      if (error) throw error
+      
+      if (data.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email,
+            first_name: firstName,
+            last_name: lastName,
+            role,
+          })
+        
+        if (profileError) throw profileError
+      }
+    } catch (error) {
+      setLoading(false)
+      throw error
     }
   }
 
