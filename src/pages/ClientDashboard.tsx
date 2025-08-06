@@ -218,7 +218,7 @@ export const ClientDashboard: React.FC = () => {
               >
                 <div className="flex items-center space-x-3">
                   <FileText className="w-5 h-5 text-blue-600" />
-                  <span className="font-medium text-blue-900">Complete Worksheets</span>
+                  <span className="font-medium text-blue-900">Send Worksheets</span>
                 </div>
                 <ChevronRight className="w-5 h-5 text-blue-600" />
               </button>
@@ -229,7 +229,7 @@ export const ClientDashboard: React.FC = () => {
               >
                 <div className="flex items-center space-x-3">
                   <ClipboardList className="w-5 h-5 text-purple-600" />
-                  <span className="font-medium text-purple-900">Take Assessments</span>
+                  <span className="font-medium text-purple-900">Send Assessments</span>
                 </div>
                 <ChevronRight className="w-5 h-5 text-purple-600" />
               </button>

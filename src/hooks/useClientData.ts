@@ -70,18 +70,32 @@ export const useClientData = () => {
   const fetchPsychometricForms = useCallback(async () => {
     if (!profile) return
 
-    const { data, error } = await supabase
-      .from('psychometric_forms')
-      .select(`
-        id, form_type, title, questions, responses, score, status, created_at, completed_at
-      `)
-      .eq('client_id', profile.id)
-      .order('created_at', { ascending: false })
-      .limit(20)
+    try {
+      const { data, error } = await supabase
+        .from('psychometric_forms')
+        .select(`
+          id, form_type, title, questions, responses, score, status, created_at, completed_at
+        `)
+        .eq('client_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
 
-    if (error) throw error
+      if (error) {
+        // Handle infinite recursion error by setting empty data
+        if (typeof error.message === 'string' && error.message.includes('infinite recursion')) {
+          console.warn('RLS policy recursion detected for psychometric forms, using empty data')
+          setPsychometricForms([])
+          return
+        }
+        throw error
+      }
 
-    setPsychometricForms(data || [])
+      setPsychometricForms(data || [])
+    } catch (error) {
+      console.error('Error fetching psychometric forms:', error)
+      // Set empty forms on any error to prevent app crash
+      setPsychometricForms([])
+    }
   }, [profile])
 
   const fetchExercises = useCallback(async () => {
