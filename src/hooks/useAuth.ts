@@ -21,7 +21,6 @@ export const useAuth = () => {
       console.log('Fetching profile for user:', userId)
       
       // First try normal query
-      // First try normal query
       let { data, error } = await supabase
         .from('profiles')
         .select('id, role, first_name, last_name, email')
@@ -30,36 +29,6 @@ export const useAuth = () => {
       
       if (error) {
         console.error('Profile fetch error:', error)
-        
-        // If infinite recursion error, try RPC function as fallback
-        if (error.message?.includes('infinite recursion')) {
-          console.log('Infinite recursion detected, trying RPC fallback...')
-          
-          const { data: rpcData, error: rpcError } = await supabase
-            .rpc('get_user_profile_safe', { user_id: userId })
-          
-          if (rpcError) {
-            console.error('RPC fallback also failed:', rpcError)
-            // Create a minimal profile from auth user data
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-              const fallbackProfile = {
-                id: user.id,
-                role: (user.user_metadata?.role || 'client') as 'therapist' | 'client',
-                first_name: user.user_metadata?.first_name || 'User',
-                last_name: user.user_metadata?.last_name || '',
-                email: user.email || ''
-              }
-              console.log('Using fallback profile from auth metadata:', fallbackProfile)
-              setProfile(fallbackProfile)
-              return
-            }
-          } else {
-            console.log('RPC fallback successful:', rpcData)
-            setProfile(rpcData)
-            return
-          }
-        }
         
         // If infinite recursion error, try RPC function as fallback
         if (error.message?.includes('infinite recursion')) {
@@ -105,12 +74,6 @@ export const useAuth = () => {
     } catch (error) {
       console.error('Error fetching profile:', error)
       
-      // If it's a recursion error, show specific message
-      if (error instanceof Error && error.message?.includes('infinite recursion')) {
-        setError('Database configuration issue detected. Please contact support.')
-      } else {
-        setError('Failed to load profile')
-      }
       // If it's a recursion error, show specific message
       if (error instanceof Error && error.message?.includes('infinite recursion')) {
         setError('Database configuration issue detected. Please contact support.')
