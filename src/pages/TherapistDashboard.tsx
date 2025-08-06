@@ -123,7 +123,7 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'overview', name: 'Overview', icon: Target },
     { id: 'profile', name: 'My Profile', icon: Users },
     { id: 'clients', name: 'Client Management', icon: Users },
-    { id: 'cases', name: 'Case Files', icon: FileText },
+    { id: 'cases', name: 'Case Files & Assessments', icon: FileText },
     { id: 'assessments', name: 'Assessment Tools', icon: ClipboardList },
     { id: 'treatment', name: 'Treatment Planning', icon: Brain },
     { id: 'sessions', name: 'Session Management', icon: Calendar },

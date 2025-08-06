@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { X, Brain, Calculator, FileText, CheckCircle } from 'lucide-react'
+import { X, Brain, Calculator, FileText, CheckCircle, ClipboardList } from 'lucide-react'
 
 interface PsychometricAssessment {
   name: string
