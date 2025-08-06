@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Layout } from '../components/Layout'
 import { PsychometricForm } from '../components/PsychometricForm'
 import { ProgressChart } from '../components/ProgressChart'
 import { GameExercise } from '../components/GameExercise'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../hooks/useAuth'
+import { useClientData } from '../hooks/useClientData'
 import { 
   FileText, 
   Clock, 
@@ -18,275 +17,42 @@ import {
   Target
 } from 'lucide-react'
 
-interface Worksheet {
-  id: string
-  type: string
-  title: string
-  content: any
-  status: 'assigned' | 'in_progress' | 'completed'
-  created_at: string
-  updated_at: string
-  therapist: {
-    first_name: string
-    last_name: string
-  }
-}
-
-interface PsychometricForm {
-  id: string
-  form_type: string
-  title: string
-  questions: any[]
-  responses: any
-  score: number
-  status: 'assigned' | 'completed'
-  created_at: string
-  completed_at: string | null
-  therapist: {
-    first_name: string
-    last_name: string
-  }
-}
-
-interface Exercise {
-  id: string
-  exercise_type: string
-  title: string
-  description: string
-  game_config: any
-  progress: any
-  status: 'assigned' | 'in_progress' | 'completed'
-  created_at: string
-  last_played_at: string | null
-  therapist: {
-    first_name: string
-    last_name: string
-  }
-}
-
-interface ProgressData {
-  date: string
-  value: number
-  metric_type: string
-}
-
 export const ClientDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'worksheets' | 'assessments' | 'exercises' | 'progress'>('overview')
-  const [worksheets, setWorksheets] = useState<Worksheet[]>([])
-  const [psychometricForms, setPsychometricForms] = useState<PsychometricForm[]>([])
-  const [exercises, setExercises] = useState<Exercise[]>([])
-  const [progressData, setProgressData] = useState<ProgressData[]>([])
-  const [selectedWorksheet, setSelectedWorksheet] = useState<Worksheet | null>(null)
-  const [selectedForm, setSelectedForm] = useState<PsychometricForm | null>(null)
-  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
-  const [loading, setLoading] = useState(true)
-  const { profile } = useAuth()
+  const [selectedWorksheet, setSelectedWorksheet] = useState<any>(null)
+  const [selectedForm, setSelectedForm] = useState<any>(null)
+  const [selectedExercise, setSelectedExercise] = useState<any>(null)
+  
+  const {
+    worksheets,
+    psychometricForms,
+    exercises,
+    progressData,
+    loading,
+    updateWorksheet,
+    completePsychometricForm,
+    updateExerciseProgress
+  } = useClientData()
 
-  useEffect(() => {
-    fetchAllData()
-  }, [profile])
-
-  const fetchAllData = async () => {
-    if (!profile) return
-
-    try {
-      await Promise.all([
-        fetchWorksheets(),
-        fetchPsychometricForms(),
-        fetchExercises(),
-        fetchProgressData()
-      ])
-    } catch (error) {
-      console.error('Error fetching data:', error)
-    } finally {
-      setLoading(false)
+  // Memoized calculations for better performance
+  const stats = useMemo(() => {
+    const totalItems = worksheets.length + psychometricForms.length + exercises.length
+    const completedItems = [...worksheets, ...psychometricForms, ...exercises]
+      .filter(item => item.status === 'completed').length
+    
+    return {
+      worksheets: worksheets.length,
+      assessments: psychometricForms.length,
+      exercises: exercises.length,
+      completed: completedItems
     }
-  }
+  }, [worksheets, psychometricForms, exercises])
 
-  const fetchWorksheets = async () => {
-    if (!profile) return
-
-    const { data, error } = await supabase
-      .from('cbt_worksheets')
-      .select(`
-        *,
-        profiles!cbt_worksheets_therapist_id_fkey (
-          first_name,
-          last_name
-        )
-      `)
-      .eq('client_id', profile.id)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-
-    const worksheetsWithTherapist = data?.map(worksheet => ({
-      ...worksheet,
-      therapist: worksheet.profiles
-    })) || []
-
-    setWorksheets(worksheetsWithTherapist)
-  }
-
-  const fetchPsychometricForms = async () => {
-    if (!profile) return
-
-    const { data, error } = await supabase
-      .from('psychometric_forms')
-      .select(`
-        *,
-        profiles!psychometric_forms_therapist_id_fkey (
-          first_name,
-          last_name
-        )
-      `)
-      .eq('client_id', profile.id)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-
-    const formsWithTherapist = data?.map(form => ({
-      ...form,
-      therapist: form.profiles
-    })) || []
-
-    setPsychometricForms(formsWithTherapist)
-  }
-
-  const fetchExercises = async () => {
-    if (!profile) return
-
-    const { data, error } = await supabase
-      .from('therapeutic_exercises')
-      .select(`
-        *,
-        profiles!therapeutic_exercises_therapist_id_fkey (
-          first_name,
-          last_name
-        )
-      `)
-      .eq('client_id', profile.id)
-      .order('created_at', { ascending: false })
-
-    if (error) throw error
-
-    const exercisesWithTherapist = data?.map(exercise => ({
-      ...exercise,
-      therapist: exercise.profiles
-    })) || []
-
-    setExercises(exercisesWithTherapist)
-  }
-
-  const fetchProgressData = async () => {
-    if (!profile) return
-
-    const { data, error } = await supabase
-      .from('progress_tracking')
-      .select('*')
-      .eq('client_id', profile.id)
-      .order('recorded_at', { ascending: true })
-
-    if (error) throw error
-
-    const formattedData = data?.map(item => ({
-      date: item.recorded_at,
-      value: item.value,
-      metric_type: item.metric_type
-    })) || []
-
-    setProgressData(formattedData)
-  }
-
-  const updateWorksheet = async (worksheetId: string, content: any, status: string) => {
-    try {
-      const { error } = await supabase
-        .from('cbt_worksheets')
-        .update({ 
-          content, 
-          status,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', worksheetId)
-
-      if (error) throw error
-
-      await fetchWorksheets()
-      
-      if (selectedWorksheet?.id === worksheetId) {
-        setSelectedWorksheet({
-          ...selectedWorksheet,
-          content,
-          status: status as any
-        })
-      }
-    } catch (error) {
-      console.error('Error updating worksheet:', error)
-    }
-  }
-
-  const completePsychometricForm = async (formId: string, responses: any, score: number) => {
-    try {
-      const { error } = await supabase
-        .from('psychometric_forms')
-        .update({ 
-          responses, 
-          score,
-          status: 'completed',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', formId)
-
-      if (error) throw error
-
-      // Add to progress tracking
-      const form = psychometricForms.find(f => f.id === formId)
-      if (form) {
-        await supabase
-          .from('progress_tracking')
-          .insert({
-            client_id: profile!.id,
-            metric_type: form.form_type,
-            value: score,
-            source_type: 'psychometric',
-            source_id: formId
-          })
-      }
-
-      await fetchPsychometricForms()
-      await fetchProgressData()
-      setSelectedForm(null)
-    } catch (error) {
-      console.error('Error completing form:', error)
-    }
-  }
-
-  const updateExerciseProgress = async (exerciseId: string, progress: any, status: string) => {
-    try {
-      const { error } = await supabase
-        .from('therapeutic_exercises')
-        .update({ 
-          progress, 
-          status,
-          last_played_at: new Date().toISOString()
-        })
-        .eq('id', exerciseId)
-
-      if (error) throw error
-
-      await fetchExercises()
-      
-      if (selectedExercise?.id === exerciseId) {
-        setSelectedExercise({
-          ...selectedExercise,
-          progress,
-          status: status as any
-        })
-      }
-    } catch (error) {
-      console.error('Error updating exercise:', error)
-    }
-  }
+  const recentActivities = useMemo(() => {
+    return [...worksheets, ...psychometricForms, ...exercises]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 3)
+  }, [worksheets, psychometricForms, exercises])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -335,11 +101,14 @@ export const ClientDashboard: React.FC = () => {
     )
   }
 
-  const renderOverview = () => (
+  const renderOverview = () => {
+    const { profile } = useClientData()
+    
+    return (
     <div className="space-y-6">
       {/* Welcome Message */}
       <div className="bg-gradient-to-r from-blue-500 to-teal-500 text-white p-6 rounded-lg">
-        <h2 className="text-2xl font-bold mb-2">Welcome back, {profile?.first_name}!</h2>
+        <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
         <p className="text-blue-100">Continue your therapeutic journey with your assigned activities.</p>
       </div>
 
@@ -354,7 +123,7 @@ export const ClientDashboard: React.FC = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Worksheets</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">{worksheets.length}</dd>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats.worksheets}</dd>
                 </dl>
               </div>
             </div>
@@ -370,7 +139,7 @@ export const ClientDashboard: React.FC = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Assessments</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">{psychometricForms.length}</dd>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats.assessments}</dd>
                 </dl>
               </div>
             </div>
@@ -386,7 +155,7 @@ export const ClientDashboard: React.FC = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Exercises</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">{exercises.length}</dd>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats.exercises}</dd>
                 </dl>
               </div>
             </div>
@@ -402,9 +171,7 @@ export const ClientDashboard: React.FC = () => {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">Completed</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {[...worksheets, ...psychometricForms, ...exercises].filter(item => item.status === 'completed').length}
-                  </dd>
+                  <dd className="text-2xl font-semibold text-gray-900">{stats.completed}</dd>
                 </dl>
               </div>
             </div>
@@ -420,10 +187,7 @@ export const ClientDashboard: React.FC = () => {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {[...worksheets, ...psychometricForms, ...exercises]
-                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                .slice(0, 3)
-                .map((item, index) => (
+              {recentActivities.map((item, index) => (
                   <div key={index} className="flex items-center space-x-3">
                     <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(item.status)}`}>
                       {getStatusIcon(item.status)}
@@ -481,7 +245,8 @@ export const ClientDashboard: React.FC = () => {
         </div>
       </div>
     </div>
-  )
+    )
+  }
 
   const renderWorksheets = () => (
     <div className="bg-white shadow-sm rounded-lg border border-gray-200">
@@ -758,7 +523,10 @@ export const ClientDashboard: React.FC = () => {
       {selectedForm && (
         <PsychometricForm
           form={selectedForm}
-          onComplete={completePsychometricForm}
+          onComplete={(formId, responses, score) => {
+            completePsychometricForm(formId, responses, score)
+            setSelectedForm(null)
+          }}
           onClose={() => setSelectedForm(null)}
         />
       )}
@@ -775,13 +543,11 @@ export const ClientDashboard: React.FC = () => {
 }
 
 // Thought Record Modal Component (keeping existing implementation)
-interface ThoughtRecordModalProps {
-  worksheet: Worksheet
+const ThoughtRecordModal: React.FC<{
+  worksheet: any
   onClose: () => void
   onUpdate: (worksheetId: string, content: any, status: string) => void
-}
-
-const ThoughtRecordModal: React.FC<ThoughtRecordModalProps> = ({ worksheet, onClose, onUpdate }) => {
+}> = ({ worksheet, onClose, onUpdate }) => {
   const [content, setContent] = useState(worksheet.content)
 
   const handleChange = (field: string, value: any) => {

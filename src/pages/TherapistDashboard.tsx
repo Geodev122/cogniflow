@@ -1,15 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Layout } from '../components/Layout'
-import { ClientManagement } from '../components/therapist/ClientManagement'
-import { AssessmentTools } from '../components/therapist/AssessmentTools'
-import { TreatmentPlanning } from '../components/therapist/TreatmentPlanning'
-import { SessionManagement } from '../components/therapist/SessionManagement'
-import { WorksheetManagement } from '../components/therapist/WorksheetManagement'
-import { ProgressMonitoring } from '../components/therapist/ProgressMonitoring'
-import { CommunicationTools } from '../components/therapist/CommunicationTools'
-import { DocumentationCompliance } from '../components/therapist/DocumentationCompliance'
-import { ResourceLibrary } from '../components/therapist/ResourceLibrary'
-import { PracticeManagement } from '../components/therapist/PracticeManagement'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { 
@@ -26,8 +16,22 @@ import {
   Brain,
   Target,
   Clock,
-  CheckCircle
+  CheckCircle,
+  AlertTriangle,
+  ChevronRight
 } from 'lucide-react'
+
+// Lazy load components for better performance
+const ClientManagement = React.lazy(() => import('../components/therapist/ClientManagement').then(m => ({ default: m.ClientManagement })))
+const AssessmentTools = React.lazy(() => import('../components/therapist/AssessmentTools').then(m => ({ default: m.AssessmentTools })))
+const TreatmentPlanning = React.lazy(() => import('../components/therapist/TreatmentPlanning').then(m => ({ default: m.TreatmentPlanning })))
+const SessionManagement = React.lazy(() => import('../components/therapist/SessionManagement').then(m => ({ default: m.SessionManagement })))
+const WorksheetManagement = React.lazy(() => import('../components/therapist/WorksheetManagement').then(m => ({ default: m.WorksheetManagement })))
+const ProgressMonitoring = React.lazy(() => import('../components/therapist/ProgressMonitoring').then(m => ({ default: m.ProgressMonitoring })))
+const CommunicationTools = React.lazy(() => import('../components/therapist/CommunicationTools').then(m => ({ default: m.CommunicationTools })))
+const DocumentationCompliance = React.lazy(() => import('../components/therapist/DocumentationCompliance').then(m => ({ default: m.DocumentationCompliance })))
+const ResourceLibrary = React.lazy(() => import('../components/therapist/ResourceLibrary').then(m => ({ default: m.ResourceLibrary })))
+const PracticeManagement = React.lazy(() => import('../components/therapist/PracticeManagement').then(m => ({ default: m.PracticeManagement })))
 
 interface DashboardStats {
   totalClients: number
@@ -52,51 +56,49 @@ export const TherapistDashboard: React.FC = () => {
   const { profile } = useAuth()
 
   useEffect(() => {
-    fetchDashboardStats()
+    if (profile && activeTab === 'overview') {
+      fetchDashboardStats()
+    }
   }, [profile])
 
   const fetchDashboardStats = async () => {
     if (!profile) return
 
     try {
-      // Get total clients
-      const { data: clientRelations } = await supabase
-        .from('therapist_client_relations')
-        .select('client_id')
-        .eq('therapist_id', profile.id)
+      // Fetch all stats in parallel for better performance
+      const [
+        { data: clientRelations },
+        { data: assessments },
+        { data: appointments },
+        { data: overdueAssignments }
+      ] = await Promise.all([
+        supabase
+          .from('therapist_client_relations')
+          .select('client_id')
+          .eq('therapist_id', profile.id),
+        supabase
+          .from('form_assignments')
+          .select('status')
+          .eq('therapist_id', profile.id),
+        supabase
+          .from('appointments')
+          .select('id')
+          .eq('therapist_id', profile.id)
+          .eq('status', 'scheduled')
+          .gte('appointment_date', new Date().toISOString())
+          .lte('appointment_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()),
+        supabase
+          .from('form_assignments')
+          .select('id')
+          .eq('therapist_id', profile.id)
+          .eq('status', 'assigned')
+          .lt('due_date', new Date().toISOString().split('T')[0])
+      ])
 
       const totalClients = clientRelations?.length || 0
-
-      // Get pending and completed assessments
-      const { data: assessments } = await supabase
-        .from('form_assignments')
-        .select('status')
-        .eq('therapist_id', profile.id)
-
       const pendingAssessments = assessments?.filter(a => a.status === 'assigned' || a.status === 'in_progress').length || 0
       const completedAssessments = assessments?.filter(a => a.status === 'completed').length || 0
-
-      // Get upcoming appointments (next 7 days)
-      const nextWeek = new Date()
-      nextWeek.setDate(nextWeek.getDate() + 7)
-      
-      const { data: appointments } = await supabase
-        .from('appointments')
-        .select('*')
-        .eq('therapist_id', profile.id)
-        .eq('status', 'scheduled')
-        .gte('appointment_date', new Date().toISOString())
-        .lte('appointment_date', nextWeek.toISOString())
-
       const upcomingAppointments = appointments?.length || 0
-
-      // Get overdue assignments
-      const { data: overdueAssignments } = await supabase
-        .from('form_assignments')
-        .select('*')
-        .eq('therapist_id', profile.id)
-        .eq('status', 'assigned')
-        .lt('due_date', new Date().toISOString().split('T')[0])
 
       setStats({
         totalClients,
@@ -113,7 +115,7 @@ export const TherapistDashboard: React.FC = () => {
     }
   }
 
-  const tabs = [
+  const tabs = useMemo(() => [
     { id: 'overview', name: 'Overview', icon: Target },
     { id: 'clients', name: 'Client Management', icon: Users },
     { id: 'assessments', name: 'Assessment Tools', icon: ClipboardList },
@@ -125,7 +127,7 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'documentation', name: 'Documentation', icon: FileText },
     { id: 'resources', name: 'Resource Library', icon: Library },
     { id: 'practice', name: 'Practice Management', icon: BarChart3 }
-  ]
+  ], [])
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -400,25 +402,65 @@ export const TherapistDashboard: React.FC = () => {
       case 'overview':
         return renderOverview()
       case 'clients':
-        return <ClientManagement />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <ClientManagement />
+          </React.Suspense>
+        )
       case 'assessments':
-        return <AssessmentTools />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <AssessmentTools />
+          </React.Suspense>
+        )
       case 'treatment':
-        return <TreatmentPlanning />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <TreatmentPlanning />
+          </React.Suspense>
+        )
       case 'sessions':
-        return <SessionManagement />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <SessionManagement />
+          </React.Suspense>
+        )
       case 'worksheets':
-        return <WorksheetManagement />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <WorksheetManagement />
+          </React.Suspense>
+        )
       case 'progress':
-        return <ProgressMonitoring />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <ProgressMonitoring />
+          </React.Suspense>
+        )
       case 'communication':
-        return <CommunicationTools />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <CommunicationTools />
+          </React.Suspense>
+        )
       case 'documentation':
-        return <DocumentationCompliance />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <DocumentationCompliance />
+          </React.Suspense>
+        )
       case 'resources':
-        return <ResourceLibrary />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <ResourceLibrary />
+          </React.Suspense>
+        )
       case 'practice':
-        return <PracticeManagement />
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <PracticeManagement />
+          </React.Suspense>
+        )
       default:
         return renderOverview()
     }

@@ -3,39 +3,24 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-console.log('🔧 Supabase config check...', new Date().toISOString())
-console.log('URL:', supabaseUrl ? `✅ Set (${supabaseUrl.substring(0, 30)}...)` : '❌ Missing')
-console.log('Key:', supabaseAnonKey ? `✅ Set (${supabaseAnonKey.substring(0, 20)}...)` : '❌ Missing')
-
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('❌ Missing Supabase environment variables!')
-  console.error('VITE_SUPABASE_URL:', supabaseUrl)
-  console.error('VITE_SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Present' : 'Missing')
   throw new Error('Missing Supabase environment variables')
 }
-
-console.log('🔧 Creating Supabase client...', new Date().toISOString())
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false
+  },
+  db: {
+    schema: 'public'
+  },
+  global: {
+    headers: {
+      'x-client-info': 'cogniflow-web'
+    }
   }
-})
-
-console.log('✅ Supabase client ready', new Date().toISOString())
-
-// Test connection
-supabase.auth.getSession().then(({ data, error }) => {
-  console.log('🔍 Initial connection test:', { 
-    hasData: !!data, 
-    hasSession: !!data?.session,
-    error: error?.message,
-    timestamp: new Date().toISOString()
-  })
-}).catch(err => {
-  console.error('❌ Connection test failed:', err)
 })
 
 export type Database = {

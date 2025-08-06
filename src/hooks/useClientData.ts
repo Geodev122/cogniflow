@@ -1,0 +1,286 @@
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from './useAuth'
+
+interface Worksheet {
+  id: string
+  type: string
+  title: string
+  content: any
+  status: 'assigned' | 'in_progress' | 'completed'
+  created_at: string
+  updated_at: string
+  therapist: {
+    first_name: string
+    last_name: string
+  }
+}
+
+interface PsychometricForm {
+  id: string
+  form_type: string
+  title: string
+  questions: any[]
+  responses: any
+  score: number
+  status: 'assigned' | 'completed'
+  created_at: string
+  completed_at: string | null
+  therapist: {
+    first_name: string
+    last_name: string
+  }
+}
+
+interface Exercise {
+  id: string
+  exercise_type: string
+  title: string
+  description: string
+  game_config: any
+  progress: any
+  status: 'assigned' | 'in_progress' | 'completed'
+  created_at: string
+  last_played_at: string | null
+  therapist: {
+    first_name: string
+    last_name: string
+  }
+}
+
+interface ProgressData {
+  date: string
+  value: number
+  metric_type: string
+}
+
+export const useClientData = () => {
+  const [worksheets, setWorksheets] = useState<Worksheet[]>([])
+  const [psychometricForms, setPsychometricForms] = useState<PsychometricForm[]>([])
+  const [exercises, setExercises] = useState<Exercise[]>([])
+  const [progressData, setProgressData] = useState<ProgressData[]>([])
+  const [loading, setLoading] = useState(true)
+  const { profile } = useAuth()
+
+  const fetchWorksheets = useCallback(async () => {
+    if (!profile) return
+
+    const { data, error } = await supabase
+      .from('cbt_worksheets')
+      .select(`
+        id, type, title, content, status, created_at, updated_at,
+        profiles!cbt_worksheets_therapist_id_fkey (
+          first_name,
+          last_name
+        )
+      `)
+      .eq('client_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (error) throw error
+
+    const worksheetsWithTherapist = data?.map(worksheet => ({
+      ...worksheet,
+      therapist: worksheet.profiles
+    })) || []
+
+    setWorksheets(worksheetsWithTherapist)
+  }, [profile])
+
+  const fetchPsychometricForms = useCallback(async () => {
+    if (!profile) return
+
+    const { data, error } = await supabase
+      .from('psychometric_forms')
+      .select(`
+        id, form_type, title, questions, responses, score, status, created_at, completed_at,
+        profiles!psychometric_forms_therapist_id_fkey (
+          first_name,
+          last_name
+        )
+      `)
+      .eq('client_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (error) throw error
+
+    const formsWithTherapist = data?.map(form => ({
+      ...form,
+      therapist: form.profiles
+    })) || []
+
+    setPsychometricForms(formsWithTherapist)
+  }, [profile])
+
+  const fetchExercises = useCallback(async () => {
+    if (!profile) return
+
+    const { data, error } = await supabase
+      .from('therapeutic_exercises')
+      .select(`
+        id, exercise_type, title, description, game_config, progress, status, created_at, last_played_at,
+        profiles!therapeutic_exercises_therapist_id_fkey (
+          first_name,
+          last_name
+        )
+      `)
+      .eq('client_id', profile.id)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (error) throw error
+
+    const exercisesWithTherapist = data?.map(exercise => ({
+      ...exercise,
+      therapist: exercise.profiles
+    })) || []
+
+    setExercises(exercisesWithTherapist)
+  }, [profile])
+
+  const fetchProgressData = useCallback(async () => {
+    if (!profile) return
+
+    const { data, error } = await supabase
+      .from('progress_tracking')
+      .select('recorded_at, value, metric_type')
+      .eq('client_id', profile.id)
+      .order('recorded_at', { ascending: true })
+      .limit(100)
+
+    if (error) throw error
+
+    const formattedData = data?.map(item => ({
+      date: item.recorded_at,
+      value: item.value,
+      metric_type: item.metric_type
+    })) || []
+
+    setProgressData(formattedData)
+  }, [profile])
+
+  const fetchAllData = useCallback(async () => {
+    if (!profile) return
+
+    setLoading(true)
+    try {
+      await Promise.all([
+        fetchWorksheets(),
+        fetchPsychometricForms(),
+        fetchExercises(),
+        fetchProgressData()
+      ])
+    } catch (error) {
+      console.error('Error fetching client data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [profile, fetchWorksheets, fetchPsychometricForms, fetchExercises, fetchProgressData])
+
+  const updateWorksheet = useCallback(async (worksheetId: string, content: any, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('cbt_worksheets')
+        .update({ 
+          content, 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', worksheetId)
+
+      if (error) throw error
+
+      // Update local state
+      setWorksheets(prev => prev.map(w => 
+        w.id === worksheetId ? { ...w, content, status: status as any } : w
+      ))
+    } catch (error) {
+      console.error('Error updating worksheet:', error)
+      throw error
+    }
+  }, [])
+
+  const completePsychometricForm = useCallback(async (formId: string, responses: any, score: number) => {
+    try {
+      const { error } = await supabase
+        .from('psychometric_forms')
+        .update({ 
+          responses, 
+          score,
+          status: 'completed',
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', formId)
+
+      if (error) throw error
+
+      // Add to progress tracking
+      const form = psychometricForms.find(f => f.id === formId)
+      if (form) {
+        await supabase
+          .from('progress_tracking')
+          .insert({
+            client_id: profile!.id,
+            metric_type: form.form_type,
+            value: score,
+            source_type: 'psychometric',
+            source_id: formId
+          })
+      }
+
+      // Update local state
+      setPsychometricForms(prev => prev.map(f => 
+        f.id === formId ? { ...f, responses, score, status: 'completed', completed_at: new Date().toISOString() } : f
+      ))
+
+      // Refresh progress data
+      await fetchProgressData()
+    } catch (error) {
+      console.error('Error completing form:', error)
+      throw error
+    }
+  }, [profile, psychometricForms, fetchProgressData])
+
+  const updateExerciseProgress = useCallback(async (exerciseId: string, progress: any, status: string) => {
+    try {
+      const { error } = await supabase
+        .from('therapeutic_exercises')
+        .update({ 
+          progress, 
+          status,
+          last_played_at: new Date().toISOString()
+        })
+        .eq('id', exerciseId)
+
+      if (error) throw error
+
+      // Update local state
+      setExercises(prev => prev.map(e => 
+        e.id === exerciseId ? { ...e, progress, status: status as any, last_played_at: new Date().toISOString() } : e
+      ))
+    } catch (error) {
+      console.error('Error updating exercise:', error)
+      throw error
+    }
+  }, [])
+
+  useEffect(() => {
+    if (profile) {
+      fetchAllData()
+    }
+  }, [profile, fetchAllData])
+
+  return {
+    worksheets,
+    psychometricForms,
+    exercises,
+    progressData,
+    loading,
+    updateWorksheet,
+    completePsychometricForm,
+    updateExerciseProgress,
+    refetch: fetchAllData
+  }
+}
