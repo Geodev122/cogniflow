@@ -121,7 +121,7 @@ export const TherapistDashboard: React.FC = () => {
 
   const tabs = useMemo(() => [
     { id: 'overview', name: 'Overview', icon: Target },
-    { id: 'profile', name: 'My Profile', icon: User },
+    { id: 'profile', name: 'My Profile', icon: Users },
     { id: 'clients', name: 'Client Management', icon: Users },
     { id: 'cases', name: 'Case Files', icon: FileText },
     { id: 'assessments', name: 'Assessment Tools', icon: ClipboardList },
