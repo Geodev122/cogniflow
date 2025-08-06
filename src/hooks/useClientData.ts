@@ -99,7 +99,7 @@ export const useClientData = () => {
 
       if (error) {
         // Handle infinite recursion error by setting empty data
-        if (error.message?.includes('infinite recursion')) {
+       if (typeof error.message === 'string' && error.message.includes('infinite recursion')) {
           console.warn('RLS policy recursion detected for exercises, using empty data')
           setExercises([])
           return
@@ -128,7 +128,7 @@ export const useClientData = () => {
 
       if (error) {
         // Handle infinite recursion error by setting empty data
-        if (error.message?.includes('infinite recursion')) {
+       if (typeof error.message === 'string' && error.message.includes('infinite recursion')) {
           console.warn('RLS policy recursion detected for progress tracking, using empty data')
           setProgressData([])
           return
