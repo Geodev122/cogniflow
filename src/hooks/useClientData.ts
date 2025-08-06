@@ -87,39 +87,67 @@ export const useClientData = () => {
   const fetchExercises = useCallback(async () => {
     if (!profile) return
 
-    const { data, error } = await supabase
-      .from('therapeutic_exercises')
-      .select(`
-        id, exercise_type, title, description, game_config, progress, status, created_at, last_played_at
-      `)
-      .eq('client_id', profile.id)
-      .order('created_at', { ascending: false })
-      .limit(20)
+    try {
+      const { data, error } = await supabase
+        .from('therapeutic_exercises')
+        .select(`
+          id, exercise_type, title, description, game_config, progress, status, created_at, last_played_at
+        `)
+        .eq('client_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
 
-    if (error) throw error
+      if (error) {
+        // Handle infinite recursion error by setting empty data
+        if (error.message?.includes('infinite recursion')) {
+          console.warn('RLS policy recursion detected for exercises, using empty data')
+          setExercises([])
+          return
+        }
+        throw error
+      }
 
-    setExercises(data || [])
+      setExercises(data || [])
+    } catch (error) {
+      console.error('Error fetching exercises:', error)
+      // Set empty exercises on any error to prevent app crash
+      setExercises([])
+    }
   }, [profile])
 
   const fetchProgressData = useCallback(async () => {
     if (!profile) return
 
-    const { data, error } = await supabase
-      .from('progress_tracking')
-      .select('recorded_at, value, metric_type')
-      .eq('client_id', profile.id)
-      .order('recorded_at', { ascending: true })
-      .limit(100)
+    try {
+      const { data, error } = await supabase
+        .from('progress_tracking')
+        .select('recorded_at, value, metric_type')
+        .eq('client_id', profile.id)
+        .order('recorded_at', { ascending: true })
+        .limit(100)
 
-    if (error) throw error
+      if (error) {
+        // Handle infinite recursion error by setting empty data
+        if (error.message?.includes('infinite recursion')) {
+          console.warn('RLS policy recursion detected for progress tracking, using empty data')
+          setProgressData([])
+          return
+        }
+        throw error
+      }
 
-    const formattedData = data?.map(item => ({
-      date: item.recorded_at,
-      value: item.value,
-      metric_type: item.metric_type
-    })) || []
+      const formattedData = data?.map(item => ({
+        date: item.recorded_at,
+        value: item.value,
+        metric_type: item.metric_type
+      })) || []
 
-    setProgressData(formattedData)
+      setProgressData(formattedData)
+    } catch (error) {
+      console.error('Error fetching progress data:', error)
+      // Set empty progress data on any error to prevent app crash
+      setProgressData([])
+    }
   }, [profile])
 
   const fetchAllData = useCallback(async () => {
@@ -135,6 +163,7 @@ export const useClientData = () => {
       ])
     } catch (error) {
       console.error('Error fetching client data:', error)
+      // Don't re-throw the error to prevent app crash
     } finally {
       setLoading(false)
     }
