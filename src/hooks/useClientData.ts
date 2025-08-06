@@ -10,10 +10,6 @@ interface Worksheet {
   status: 'assigned' | 'in_progress' | 'completed'
   created_at: string
   updated_at: string
-  therapist: {
-    first_name: string
-    last_name: string
-  }
 }
 
 interface PsychometricForm {
@@ -26,10 +22,6 @@ interface PsychometricForm {
   status: 'assigned' | 'completed'
   created_at: string
   completed_at: string | null
-  therapist: {
-    first_name: string
-    last_name: string
-  }
 }
 
 interface Exercise {
@@ -42,10 +34,6 @@ interface Exercise {
   status: 'assigned' | 'in_progress' | 'completed'
   created_at: string
   last_played_at: string | null
-  therapist: {
-    first_name: string
-    last_name: string
-  }
 }
 
 interface ProgressData {
@@ -68,11 +56,7 @@ export const useClientData = () => {
     const { data, error } = await supabase
       .from('cbt_worksheets')
       .select(`
-        id, type, title, content, status, created_at, updated_at,
-        profiles!cbt_worksheets_therapist_id_fkey (
-          first_name,
-          last_name
-        )
+        id, type, title, content, status, created_at, updated_at
       `)
       .eq('client_id', profile.id)
       .order('created_at', { ascending: false })
@@ -80,12 +64,7 @@ export const useClientData = () => {
 
     if (error) throw error
 
-    const worksheetsWithTherapist = data?.map(worksheet => ({
-      ...worksheet,
-      therapist: worksheet.profiles
-    })) || []
-
-    setWorksheets(worksheetsWithTherapist)
+    setWorksheets(data || [])
   }, [profile])
 
   const fetchPsychometricForms = useCallback(async () => {
@@ -94,11 +73,7 @@ export const useClientData = () => {
     const { data, error } = await supabase
       .from('psychometric_forms')
       .select(`
-        id, form_type, title, questions, responses, score, status, created_at, completed_at,
-        profiles!psychometric_forms_therapist_id_fkey (
-          first_name,
-          last_name
-        )
+        id, form_type, title, questions, responses, score, status, created_at, completed_at
       `)
       .eq('client_id', profile.id)
       .order('created_at', { ascending: false })
@@ -106,12 +81,7 @@ export const useClientData = () => {
 
     if (error) throw error
 
-    const formsWithTherapist = data?.map(form => ({
-      ...form,
-      therapist: form.profiles
-    })) || []
-
-    setPsychometricForms(formsWithTherapist)
+    setPsychometricForms(data || [])
   }, [profile])
 
   const fetchExercises = useCallback(async () => {
@@ -120,11 +90,7 @@ export const useClientData = () => {
     const { data, error } = await supabase
       .from('therapeutic_exercises')
       .select(`
-        id, exercise_type, title, description, game_config, progress, status, created_at, last_played_at,
-        profiles!therapeutic_exercises_therapist_id_fkey (
-          first_name,
-          last_name
-        )
+        id, exercise_type, title, description, game_config, progress, status, created_at, last_played_at
       `)
       .eq('client_id', profile.id)
       .order('created_at', { ascending: false })
@@ -132,12 +98,7 @@ export const useClientData = () => {
 
     if (error) throw error
 
-    const exercisesWithTherapist = data?.map(exercise => ({
-      ...exercise,
-      therapist: exercise.profiles
-    })) || []
-
-    setExercises(exercisesWithTherapist)
+    setExercises(data || [])
   }, [profile])
 
   const fetchProgressData = useCallback(async () => {

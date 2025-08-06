@@ -282,9 +282,7 @@ export const ClientDashboard: React.FC = () => {
                     </div>
                     <div>
                       <h4 className="text-sm font-medium text-gray-900">{worksheet.title}</h4>
-                      <p className="text-sm text-gray-500">
-                        Assigned by Dr. {worksheet.therapist.first_name} {worksheet.therapist.last_name}
-                      </p>
+                      <p className="text-sm text-gray-500">Assigned by your therapist</p>
                       <p className="text-xs text-gray-400">
                         {formatDate(worksheet.created_at)}
                       </p>
@@ -338,7 +336,7 @@ export const ClientDashboard: React.FC = () => {
                     <div>
                       <h4 className="text-sm font-medium text-gray-900">{form.title}</h4>
                       <p className="text-sm text-gray-500">
-                        {form.form_type.toUpperCase()} • Dr. {form.therapist.first_name} {form.therapist.last_name}
+                        {form.form_type.toUpperCase()} • Assigned by your therapist
                       </p>
                       <p className="text-xs text-gray-400">
                         {formatDate(form.created_at)}
@@ -399,7 +397,7 @@ export const ClientDashboard: React.FC = () => {
                 <p className="text-sm text-gray-600 mb-4">{exercise.description}</p>
                 
                 <div className="text-xs text-gray-500 mb-4">
-                  <p>Assigned by Dr. {exercise.therapist.first_name} {exercise.therapist.last_name}</p>
+                  <p>Assigned by your therapist</p>
                   <p>{formatDate(exercise.created_at)}</p>
                   {exercise.last_played_at && (
                     <p>Last played: {formatDate(exercise.last_played_at)}</p>
