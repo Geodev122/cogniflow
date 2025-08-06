@@ -47,7 +47,6 @@ interface DashboardStats {
 export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
   const [showOnboarding, setShowOnboarding] = useState(false)
-  const [showProfile, setShowProfile] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
     activeClients: 0,
@@ -133,48 +132,6 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'resources', name: 'Resource Library', icon: Library },
     { id: 'practice', name: 'Practice Management', icon: BarChart3 }
   ], [])
-
-  // Mock therapist data for profile demo
-  const mockTherapistData = {
-    id: profile?.id || '',
-    fullName: `${profile?.first_name} ${profile?.last_name}`,
-    profilePicture: 'https://images.pexels.com/photos/5327580/pexels-photo-5327580.jpeg?auto=compress&cs=tinysrgb&w=400',
-    whatsappNumber: '+1 (555) 123-4567',
-    email: profile?.email || '',
-    specializations: [
-      'Anxiety Disorders',
-      'Depression',
-      'Cognitive Behavioral Therapy (CBT)',
-      'Trauma & PTSD',
-      'Stress Management'
-    ],
-    languages: ['English', 'Spanish', 'French'],
-    qualifications: `Licensed Professional Counselor (LPC)
-Master of Arts in Clinical Psychology - University of California
-Certified Cognitive Behavioral Therapist
-Trauma-Informed Care Certification
-10+ years of clinical experience`,
-    bio: `I believe in creating a warm, non-judgmental space where clients feel safe to explore their thoughts and emotions. My approach combines evidence-based techniques with genuine empathy and understanding.
-
-I specialize in helping individuals overcome anxiety, depression, and trauma through Cognitive Behavioral Therapy and mindfulness-based interventions. Each session is tailored to your unique needs and goals.
-
-Whether you're dealing with life transitions, relationship challenges, or mental health concerns, I'm here to support you on your journey toward healing and personal growth.`,
-    introVideo: 'mock-video-url',
-    practiceLocations: [
-      { address: '123 Wellness Center, Downtown Medical Plaza, Suite 456', isPrimary: true },
-      { address: 'Online Sessions Available', isPrimary: false }
-    ],
-    verificationStatus: 'verified' as const,
-    membershipStatus: 'active' as const,
-    joinDate: '2023-01-15',
-    stats: {
-      totalClients: stats.totalClients,
-      yearsExperience: 12,
-      rating: 4.8,
-      reviewCount: 127,
-      responseTime: '< 2 hours'
-    }
-  }
 
   const handleOnboardingComplete = (data: any) => {
     console.log('Onboarding completed:', data)
@@ -329,13 +286,13 @@ Whether you're dealing with life transitions, relationship challenges, or mental
               
               <button
                 onClick={() => setShowOnboarding(true)}
-                className="w-full flex items-center justify-between p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors group"
+                className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <User className="w-6 h-6 text-indigo-600" />
-                  <span className="font-medium text-indigo-900">Complete Profile Setup</span>
+                  <User className="w-6 h-6 text-green-600" />
+                  <span className="font-medium text-green-900">Complete Profile Setup</span>
                 </div>
-                <ChevronRight className="w-5 h-5 text-indigo-600 group-hover:translate-x-1 transition-transform" />
+                <ChevronRight className="w-5 h-5 text-green-600 group-hover:translate-x-1 transition-transform" />
               </button>
               
               <button
@@ -386,8 +343,8 @@ Whether you're dealing with life transitions, relationship challenges, or mental
                   <CheckCircle className="w-4 h-4 text-green-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-900">Assessment completed by Maria Garcia</p>
-                  <p className="text-xs text-gray-500">2 hours ago</p>
+                  <p className="text-sm text-gray-900">No recent activity</p>
+                  <p className="text-xs text-gray-500">Start by adding clients</p>
                 </div>
               </div>
               
@@ -396,8 +353,8 @@ Whether you're dealing with life transitions, relationship challenges, or mental
                   <Users className="w-4 h-4 text-blue-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-900">New client Alex Thompson added</p>
-                  <p className="text-xs text-gray-500">1 day ago</p>
+                  <p className="text-sm text-gray-900">Build your client roster</p>
+                  <p className="text-xs text-gray-500">Add clients to get started</p>
                 </div>
               </div>
               
@@ -406,8 +363,8 @@ Whether you're dealing with life transitions, relationship challenges, or mental
                   <FileText className="w-4 h-4 text-amber-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-900">Session notes updated for James Wilson</p>
-                  <p className="text-xs text-gray-500">2 days ago</p>
+                  <p className="text-sm text-gray-900">Create session notes</p>
+                  <p className="text-xs text-gray-500">Document your sessions</p>
                 </div>
               </div>
               
@@ -416,8 +373,8 @@ Whether you're dealing with life transitions, relationship challenges, or mental
                   <Brain className="w-4 h-4 text-purple-600" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm text-gray-900">CBT worksheet assigned to Lisa Brown</p>
-                  <p className="text-xs text-gray-500">3 days ago</p>
+                  <p className="text-sm text-gray-900">Assign therapeutic exercises</p>
+                  <p className="text-xs text-gray-500">Help clients with CBT tools</p>
                 </div>
               </div>
             </div>
@@ -434,25 +391,25 @@ Whether you're dealing with life transitions, relationship challenges, or mental
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2 mb-2">
                   <TrendingUp className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-900">Positive Progress</span>
+                  <span className="text-sm font-medium text-green-900">Getting Started</span>
                 </div>
-                <p className="text-sm text-green-800">3 clients showing consistent improvement in mood scores</p>
+                <p className="text-sm text-green-800">Complete your profile setup to start accepting clients</p>
               </div>
               
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2 mb-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm font-medium text-amber-900">Attention Needed</span>
+                  <Target className="w-4 h-4 text-amber-600" />
+                  <span className="text-sm font-medium text-amber-900">Next Steps</span>
                 </div>
-                <p className="text-sm text-amber-800">1 client showing elevated anxiety scores - consider intervention</p>
+                <p className="text-sm text-amber-800">Add your first client and begin your therapeutic practice</p>
               </div>
               
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Target className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">Engagement</span>
+                  <Brain className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">Tools Available</span>
                 </div>
-                <p className="text-sm text-blue-800">87% average completion rate for assigned worksheets</p>
+                <p className="text-sm text-blue-800">CBT worksheets, assessments, and progress tracking ready</p>
               </div>
             </div>
           </div>
@@ -478,13 +435,18 @@ Whether you're dealing with life transitions, relationship challenges, or mental
       case 'overview':
         return renderOverview()
       case 'profile':
-        return (
-          <TherapistProfile 
-            therapist={mockTherapistData} 
-            isOwnProfile={true}
-            onEdit={() => setShowProfile(true)}
-          />
-        )
+        return <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 text-center">
+          <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Complete Your Profile</h3>
+          <p className="text-gray-600 mb-6">Set up your professional profile to start accepting clients.</p>
+          <button
+            onClick={() => setShowOnboarding(true)}
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <User className="w-5 h-5 mr-2" />
+            Start Profile Setup
+          </button>
+        </div>
       case 'clients':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>

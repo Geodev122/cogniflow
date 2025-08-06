@@ -42,38 +42,10 @@ A modern web application for managing Cognitive Behavioral Therapy (CBT) practic
 
 4. Run database migrations (handled automatically by Supabase)
 
-5. Generate demo data:
-   ```bash
-   npm run demo-data
-   ```
-
-6. Start the development server:
+5. Start the development server:
    ```bash
    npm run dev
    ```
-
-## Demo Data
-
-The application includes comprehensive demo data for testing:
-
-### Therapist Accounts
-- **Dr. Sarah Johnson**: `dr.sarah.johnson@cogniflow.com` / `therapist123`
-- **Dr. Michael Chen**: `dr.michael.chen@cogniflow.com` / `therapist123`  
-- **Dr. Emily Rodriguez**: `dr.emily.rodriguez@cogniflow.com` / `therapist123`
-
-### Client Accounts
-- **Alex Thompson**: `alex.thompson@email.com` / `client123`
-- **Maria Garcia**: `maria.garcia@email.com` / `client123`
-- **James Wilson**: `james.wilson@email.com` / `client123`
-- **Lisa Brown**: `lisa.brown@email.com` / `client123`
-- **David Lee**: `david.lee@email.com` / `client123`
-- **Jennifer Davis**: `jennifer.davis@email.com` / `client123`
-
-### Sample Data Includes
-- Therapist-client relationships
-- Various CBT thought record worksheets
-- Different completion statuses (assigned, in_progress, completed)
-- Realistic therapeutic scenarios and responses
 
 ## Database Schema
 
@@ -91,6 +63,26 @@ The application includes comprehensive demo data for testing:
 
 ### For Therapists
 1. Log in with therapist credentials
+2. Complete your professional profile setup
+3. Add clients to your roster
+4. Assign CBT worksheets and assessments
+5. Monitor client progress and engagement
+
+### For Clients  
+1. Log in with client credentials
+2. Complete assigned worksheets and assessments
+3. Engage with therapeutic exercises
+4. Track your progress over time
+
+## Getting Started
+
+### First Time Setup
+1. **Register** as either a therapist or client
+2. **Therapists**: Complete the comprehensive onboarding process
+3. **Clients**: Wait for your therapist to add you to their roster
+4. **Begin** your therapeutic journey with evidence-based tools
+
+### For Therapists
 2. View client roster and progress statistics
 3. Assign new CBT worksheets to clients
 4. Monitor worksheet completion status

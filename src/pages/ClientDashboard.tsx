@@ -102,8 +102,6 @@ export const ClientDashboard: React.FC = () => {
   }
 
   const renderOverview = () => {
-    const { profile } = useClientData()
-    
     return (
     <div className="space-y-6">
       {/* Welcome Message */}
@@ -187,7 +185,7 @@ export const ClientDashboard: React.FC = () => {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {recentActivities.map((item, index) => (
+              {recentActivities.length > 0 ? recentActivities.map((item, index) => (
                   <div key={index} className="flex items-center space-x-3">
                     <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(item.status)}`}>
                       {getStatusIcon(item.status)}
@@ -197,7 +195,13 @@ export const ClientDashboard: React.FC = () => {
                       <p className="text-xs text-gray-500">{formatDate(item.created_at)}</p>
                     </div>
                   </div>
-                ))}
+                )) : (
+                <div className="text-center py-8">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No assignments yet</p>
+                  <p className="text-sm text-gray-500">Your therapist will assign activities for you</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
