@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Layout } from '../components/Layout'
+import { TherapistOnboarding } from '../components/therapist/TherapistOnboarding'
+import { TherapistProfile } from '../components/therapist/TherapistProfile'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { 
@@ -44,6 +46,8 @@ interface DashboardStats {
 
 export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
     activeClients: 0,
@@ -117,6 +121,7 @@ export const TherapistDashboard: React.FC = () => {
 
   const tabs = useMemo(() => [
     { id: 'overview', name: 'Overview', icon: Target },
+    { id: 'profile', name: 'My Profile', icon: User },
     { id: 'clients', name: 'Client Management', icon: Users },
     { id: 'assessments', name: 'Assessment Tools', icon: ClipboardList },
     { id: 'treatment', name: 'Treatment Planning', icon: Brain },
@@ -128,6 +133,54 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'resources', name: 'Resource Library', icon: Library },
     { id: 'practice', name: 'Practice Management', icon: BarChart3 }
   ], [])
+
+  // Mock therapist data for profile demo
+  const mockTherapistData = {
+    id: profile?.id || '',
+    fullName: `${profile?.first_name} ${profile?.last_name}`,
+    profilePicture: 'https://images.pexels.com/photos/5327580/pexels-photo-5327580.jpeg?auto=compress&cs=tinysrgb&w=400',
+    whatsappNumber: '+1 (555) 123-4567',
+    email: profile?.email || '',
+    specializations: [
+      'Anxiety Disorders',
+      'Depression',
+      'Cognitive Behavioral Therapy (CBT)',
+      'Trauma & PTSD',
+      'Stress Management'
+    ],
+    languages: ['English', 'Spanish', 'French'],
+    qualifications: `Licensed Professional Counselor (LPC)
+Master of Arts in Clinical Psychology - University of California
+Certified Cognitive Behavioral Therapist
+Trauma-Informed Care Certification
+10+ years of clinical experience`,
+    bio: `I believe in creating a warm, non-judgmental space where clients feel safe to explore their thoughts and emotions. My approach combines evidence-based techniques with genuine empathy and understanding.
+
+I specialize in helping individuals overcome anxiety, depression, and trauma through Cognitive Behavioral Therapy and mindfulness-based interventions. Each session is tailored to your unique needs and goals.
+
+Whether you're dealing with life transitions, relationship challenges, or mental health concerns, I'm here to support you on your journey toward healing and personal growth.`,
+    introVideo: 'mock-video-url',
+    practiceLocations: [
+      { address: '123 Wellness Center, Downtown Medical Plaza, Suite 456', isPrimary: true },
+      { address: 'Online Sessions Available', isPrimary: false }
+    ],
+    verificationStatus: 'verified' as const,
+    membershipStatus: 'active' as const,
+    joinDate: '2023-01-15',
+    stats: {
+      totalClients: stats.totalClients,
+      yearsExperience: 12,
+      rating: 4.8,
+      reviewCount: 127,
+      responseTime: '< 2 hours'
+    }
+  }
+
+  const handleOnboardingComplete = (data: any) => {
+    console.log('Onboarding completed:', data)
+    setShowOnboarding(false)
+    // Here you would typically save the data to your backend
+  }
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -275,6 +328,17 @@ export const TherapistDashboard: React.FC = () => {
               </button>
               
               <button
+                onClick={() => setShowOnboarding(true)}
+                className="w-full flex items-center justify-between p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors group"
+              >
+                <div className="flex items-center space-x-3">
+                  <User className="w-6 h-6 text-indigo-600" />
+                  <span className="font-medium text-indigo-900">Complete Profile Setup</span>
+                </div>
+                <ChevronRight className="w-5 h-5 text-indigo-600 group-hover:translate-x-1 transition-transform" />
+              </button>
+              
+              <button
                 onClick={() => setActiveTab('assessments')}
                 className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors group"
               >
@@ -394,6 +458,18 @@ export const TherapistDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Onboarding Modal */}
+      {showOnboarding && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setShowOnboarding(false)} />
+            <div className="relative w-full max-w-6xl mx-4">
+              <TherapistOnboarding onComplete={handleOnboardingComplete} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 
@@ -401,6 +477,14 @@ export const TherapistDashboard: React.FC = () => {
     switch (activeTab) {
       case 'overview':
         return renderOverview()
+      case 'profile':
+        return (
+          <TherapistProfile 
+            therapist={mockTherapistData} 
+            isOwnProfile={true}
+            onEdit={() => setShowProfile(true)}
+          />
+        )
       case 'clients':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
