@@ -18,8 +18,6 @@ export const useAuth = () => {
 
   const fetchProfile = useCallback(async (user: User) => {
     try {
-      console.log('Fetching profile for user:', userId)
-      
       console.log('Fetching profile for user:', user.id)
       
       // Try database first, fallback to auth metadata if RLS fails
