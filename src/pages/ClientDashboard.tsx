@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { useAuth } from '../hooks/useAuth'
 import { Layout } from '../components/Layout'
 import { PsychometricForm } from '../components/PsychometricForm'
 import { ProgressChart } from '../components/ProgressChart'
