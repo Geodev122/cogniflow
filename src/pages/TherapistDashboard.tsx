@@ -30,7 +30,6 @@ import {
 const ClientManagement = React.lazy(() => import('../components/therapist/ClientManagement').then(m => ({ default: m.ClientManagement })))
 const CaseManagement = React.lazy(() => import('../components/therapist/CaseManagement').then(m => ({ default: m.CaseManagement })))
 const SessionManagement = React.lazy(() => import('../components/therapist/SessionManagement').then(m => ({ default: m.SessionManagement })))
-const WorksheetManagement = React.lazy(() => import('../components/therapist/WorksheetManagement').then(m => ({ default: m.WorksheetManagement })))
 const CommunicationTools = React.lazy(() => import('../components/therapist/CommunicationTools').then(m => ({ default: m.CommunicationTools })))
 const DocumentationCompliance = React.lazy(() => import('../components/therapist/DocumentationCompliance').then(m => ({ default: m.DocumentationCompliance })))
 const ResourceLibrary = React.lazy(() => import('../components/therapist/ResourceLibrary').then(m => ({ default: m.ResourceLibrary })))
@@ -131,7 +130,6 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'clients', name: 'Client Management', icon: Users },
     { id: 'cases', name: 'Case Management', icon: FileText },
     { id: 'sessions', name: 'Session Management', icon: Calendar },
-    { id: 'worksheets', name: 'Worksheets & Exercises', icon: BookOpen },
     { id: 'resources', name: 'Resource Library', icon: Library },
     { id: 'communication', name: 'Communication', icon: MessageSquare },
     { id: 'documentation', name: 'Documentation', icon: FileText },
@@ -497,12 +495,6 @@ export const TherapistDashboard: React.FC = () => {
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <SessionManagement />
-          </React.Suspense>
-        )
-      case 'worksheets':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <WorksheetManagement />
           </React.Suspense>
         )
       case 'communication':
