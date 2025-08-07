@@ -32,7 +32,10 @@ export default function ClientDashboard() {
     exercises,
     progressData,
     loading,
-    usingFallbackData
+    usingFallbackData,
+    updateWorksheet,
+    completePsychometricForm,
+    updateExerciseProgress
   } = useClientData()
   
   const [activeTab, setActiveTab] = useState('overview')
@@ -40,17 +43,6 @@ export default function ClientDashboard() {
   const [selectedWorksheet, setSelectedWorksheet] = useState<any>(null)
   const [selectedForm, setSelectedForm] = useState<any>(null)
   const [selectedExercise, setSelectedExercise] = useState<any>(null)
-  
-  const {
-    worksheets,
-    psychometricForms,
-    exercises,
-    progressData,
-    loading,
-    updateWorksheet,
-    completePsychometricForm,
-    updateExerciseProgress
-  } = useClientData()
 
   // Memoized calculations for better performance
   const stats = useMemo(() => {
