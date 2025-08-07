@@ -20,9 +20,26 @@ export const useAuth = () => {
     try {
       console.log('Fetching profile for user:', userId)
       
-      // Skip database query due to RLS recursion issues
-      // Use auth user metadata as primary source
+      // Try database first, fallback to auth metadata if RLS fails
       const { data: { user } } = await supabase.auth.getUser()
+      
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
+        
+        if (profileData && !profileError) {
+          console.log('Using profile from database:', profileData)
+          setProfile(profileData)
+          return
+        }
+      } catch (dbError) {
+        console.warn('Database profile fetch failed, using auth metadata:', dbError)
+      }
+      
+      // Fallback to auth metadata
       if (user) {
         const fallbackProfile = {
           id: user.id,
@@ -31,7 +48,7 @@ export const useAuth = () => {
           last_name: user.user_metadata?.last_name || '',
           email: user.email || ''
         }
-        console.log('Using profile from auth metadata:', fallbackProfile)
+        console.log('Using fallback profile from auth metadata:', fallbackProfile)
         setProfile(fallbackProfile)
         return
       }

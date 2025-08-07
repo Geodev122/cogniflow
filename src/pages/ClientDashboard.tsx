@@ -27,6 +27,12 @@ import {
 
 export default function ClientDashboard() {
   const { profile } = useAuth()
+  
+  // Redirect if not a client
+  if (profile && profile.role !== 'client') {
+    return <Navigate to="/therapist" replace />
+  }
+  
   const {
     worksheets,
     psychometricForms,
@@ -533,11 +539,11 @@ export default function ClientDashboard() {
   }
 
   return (
-    <Layout title="My Dashboard">
+    <Layout title="Client Dashboard">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Welcome back, {profile?.first_name}!</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Client Portal - Welcome, {profile?.first_name}!</h1>
           <div className="flex items-center space-x-2">
             {usingFallbackData && (
               <div className="flex items-center space-x-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">

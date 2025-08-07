@@ -63,6 +63,11 @@ export const TherapistDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const { profile } = useAuth()
 
+  // Redirect if not a therapist
+  if (profile && profile.role !== 'therapist') {
+    return <Navigate to="/client" replace />
+  }
+
   useEffect(() => {
     if (profile && activeTab === 'overview') {
       fetchDashboardStats()
@@ -535,11 +540,11 @@ export const TherapistDashboard: React.FC = () => {
   }
 
   return (
-    <Layout title="Practice Management Dashboard">
+    <Layout title="Therapist Dashboard">
       <div className="space-y-6">
         {/* Mobile Menu Button */}
         <div className="sm:hidden flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Practice Dashboard</h2>
+          <h2 className="text-xl font-bold text-gray-900">Therapist Portal</h2>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"

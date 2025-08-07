@@ -7,10 +7,10 @@ import { useAuth } from './hooks/useAuth'
 
 // Lazy load dashboard components with preload
 const TherapistDashboard = React.lazy(() => 
-  import('./pages/TherapistDashboard')
+  import('./pages/TherapistDashboard').then(m => ({ default: m.TherapistDashboard }))
 )
 const ClientDashboard = React.lazy(() => 
-  import('./pages/ClientDashboard')
+  import('./pages/ClientDashboard').then(m => ({ default: m.default }))
 )
 
 // Preload components on user interaction

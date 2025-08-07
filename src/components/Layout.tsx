@@ -30,7 +30,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, title }) => {
               <div>
                 <h1 className="text-lg sm:text-xl font-semibold text-gray-900">CogniFlow</h1>
                 <p className="text-xs sm:text-sm text-gray-500 capitalize">
-                  {profile?.role === 'therapist' ? 'Therapist' : 'Client'} Portal
+                  {profile?.role === 'therapist' ? 'Therapist Portal' : 'Client Portal'}
                 </p>
               </div>
             </div>
