@@ -54,6 +54,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 <LogOut className="w-4 h-4" />
               </button>
             </div>
+          </div>
+        </div>
         </div>
       </header>
 
@@ -64,9 +66,5 @@ export const Layout: React.FC<LayoutProps> = ({ children, title }) => {
         {children}
       </main>
     </div>
-  )
-}
-  )
-}
   )
 }
