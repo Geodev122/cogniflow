@@ -20,11 +20,22 @@ import {
   User,
   MessageSquare,
   Calendar,
-  Bell
+  Bell,
+  AlertTriangle
 } from 'lucide-react'
 
-export const ClientDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'worksheets' | 'assessments' | 'exercises' | 'progress'>('overview')
+export default function ClientDashboard() {
+  const { profile } = useAuth()
+  const {
+    worksheets,
+    psychometricForms,
+    exercises,
+    progressData,
+    loading,
+    usingFallbackData
+  } = useClientData()
+  
+  const [activeTab, setActiveTab] = useState('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [selectedWorksheet, setSelectedWorksheet] = useState<any>(null)
   const [selectedForm, setSelectedForm] = useState<any>(null)
@@ -531,6 +542,22 @@ export const ClientDashboard: React.FC = () => {
   return (
     <Layout title="My Dashboard">
       <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">Welcome back, {profile?.first_name}!</h1>
+          <div className="flex items-center space-x-2">
+            {usingFallbackData && (
+              <div className="flex items-center space-x-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
+                <AlertTriangle className="w-4 h-4" />
+                <span>Demo Mode</span>
+              </div>
+            )}
+            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">
+              {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+            </div>
+          </div>
+        </div>
+
         {/* Mobile Menu Button */}
         <div className="sm:hidden flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">My Dashboard</h2>
