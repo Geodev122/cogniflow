@@ -28,16 +28,13 @@ import {
 
 // Lazy load components for better performance
 const ClientManagement = React.lazy(() => import('../components/therapist/ClientManagement').then(m => ({ default: m.ClientManagement })))
-const AssessmentTools = React.lazy(() => import('../components/therapist/AssessmentTools').then(m => ({ default: m.AssessmentTools })))
-const TreatmentPlanning = React.lazy(() => import('../components/therapist/TreatmentPlanning').then(m => ({ default: m.TreatmentPlanning })))
+const CaseManagement = React.lazy(() => import('../components/therapist/CaseManagement').then(m => ({ default: m.CaseManagement })))
 const SessionManagement = React.lazy(() => import('../components/therapist/SessionManagement').then(m => ({ default: m.SessionManagement })))
 const WorksheetManagement = React.lazy(() => import('../components/therapist/WorksheetManagement').then(m => ({ default: m.WorksheetManagement })))
-const ProgressMonitoring = React.lazy(() => import('../components/therapist/ProgressMonitoring').then(m => ({ default: m.ProgressMonitoring })))
 const CommunicationTools = React.lazy(() => import('../components/therapist/CommunicationTools').then(m => ({ default: m.CommunicationTools })))
 const DocumentationCompliance = React.lazy(() => import('../components/therapist/DocumentationCompliance').then(m => ({ default: m.DocumentationCompliance })))
 const ResourceLibrary = React.lazy(() => import('../components/therapist/ResourceLibrary').then(m => ({ default: m.ResourceLibrary })))
 const PracticeManagement = React.lazy(() => import('../components/therapist/PracticeManagement').then(m => ({ default: m.PracticeManagement })))
-const CaseFiles = React.lazy(() => import('../components/therapist/CaseFiles').then(m => ({ default: m.CaseFiles })))
 
 interface DashboardStats {
   totalClients: number
@@ -131,17 +128,13 @@ export const TherapistDashboard: React.FC = () => {
 
   const tabs = useMemo(() => [
     { id: 'overview', name: 'Overview', icon: Target },
-    { id: 'profile', name: 'My Profile', icon: Users },
     { id: 'clients', name: 'Client Management', icon: Users },
-    { id: 'cases', name: 'Case Files & Assessments', icon: FileText },
-    { id: 'assessments', name: 'Assessment Tools', icon: ClipboardList },
-    { id: 'treatment', name: 'Treatment Planning', icon: Brain },
+    { id: 'cases', name: 'Case Management', icon: FileText },
     { id: 'sessions', name: 'Session Management', icon: Calendar },
     { id: 'worksheets', name: 'Worksheets & Exercises', icon: BookOpen },
-    { id: 'progress', name: 'Progress Monitoring', icon: TrendingUp },
+    { id: 'resources', name: 'Resource Library', icon: Library },
     { id: 'communication', name: 'Communication', icon: MessageSquare },
     { id: 'documentation', name: 'Documentation', icon: FileText },
-    { id: 'resources', name: 'Resource Library', icon: Library },
     { id: 'practice', name: 'Practice Management', icon: BarChart3 }
   ], [])
 
@@ -153,6 +146,57 @@ export const TherapistDashboard: React.FC = () => {
 
   const renderOverview = () => (
     <div className="space-y-6">
+      {/* Profile Completion Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <User className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">My Profile Completion</h3>
+              <p className="text-sm text-gray-600">Complete your professional profile to get listed on TheraWay</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-16 h-2 bg-gray-200 rounded-full">
+              <div className="w-4 h-2 bg-amber-500 rounded-full"></div>
+            </div>
+            <span className="text-sm text-gray-600">25%</span>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+              <CheckCircle className="w-3 h-3 text-white" />
+            </div>
+            <span className="text-sm text-gray-700">Basic Information</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-gray-300 rounded-full"></div>
+            <span className="text-sm text-gray-500">Professional Details</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-gray-300 rounded-full"></div>
+            <span className="text-sm text-gray-500">Verification</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-600">
+            Complete your profile to be featured on TheraWay directory and attract new clients
+          </p>
+          <button
+            onClick={() => setShowOnboardingModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <User className="w-4 h-4 mr-2" />
+            Continue Setup
+          </button>
+        </div>
+      </div>
+
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 sm:p-8 rounded-xl shadow-lg">
         <div className="flex items-center justify-between">
@@ -297,23 +341,23 @@ export const TherapistDashboard: React.FC = () => {
               </button>
               
               <button
-                onClick={() => setShowOnboardingModal(true)}
+                onClick={() => setActiveTab('cases')}
                 className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <User className="w-6 h-6 text-green-600" />
-                  <span className="font-medium text-green-900">Complete Profile Setup</span>
+                  <FileText className="w-6 h-6 text-green-600" />
+                  <span className="font-medium text-green-900">Case Management</span>
                 </div>
                 <ChevronRight className="w-5 h-5 text-green-600 group-hover:translate-x-1 transition-transform" />
               </button>
               
               <button
-                onClick={() => setActiveTab('assessments')}
+                onClick={() => setActiveTab('resources')}
                 className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors group"
               >
                 <div className="flex items-center space-x-3">
-                  <ClipboardList className="w-6 h-6 text-purple-600" />
-                  <span className="font-medium text-purple-900">Assign Assessment</span>
+                  <Library className="w-6 h-6 text-purple-600" />
+                  <span className="font-medium text-purple-900">Resource Library</span>
                 </div>
                 <ChevronRight className="w-5 h-5 text-purple-600 group-hover:translate-x-1 transition-transform" />
               </button>
@@ -327,17 +371,6 @@ export const TherapistDashboard: React.FC = () => {
                   <span className="font-medium text-green-900">Schedule Session</span>
                 </div>
                 <ChevronRight className="w-5 h-5 text-green-600 group-hover:translate-x-1 transition-transform" />
-              </button>
-              
-              <button
-                onClick={() => setActiveTab('progress')}
-                className="w-full flex items-center justify-between p-4 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors group"
-              >
-                <div className="flex items-center space-x-3">
-                  <TrendingUp className="w-6 h-6 text-teal-600" />
-                  <span className="font-medium text-teal-900">View Progress</span>
-                </div>
-                <ChevronRight className="w-5 h-5 text-teal-600 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
           </div>
@@ -442,19 +475,6 @@ export const TherapistDashboard: React.FC = () => {
     switch (activeTab) {
       case 'overview':
         return renderOverview()
-      case 'profile':
-        return <div className="bg-white p-8 rounded-lg shadow-sm border border-gray-200 text-center">
-          <User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Complete Your Profile</h3>
-          <p className="text-gray-600 mb-6">Set up your professional profile to start accepting clients.</p>
-          <button
-            onClick={() => setShowOnboardingModal(true)}
-            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <User className="w-5 h-5 mr-2" />
-            Start Profile Setup
-          </button>
-        </div>
       case 'clients':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
@@ -464,19 +484,13 @@ export const TherapistDashboard: React.FC = () => {
       case 'cases':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <CaseFiles />
+            <CaseManagement />
           </React.Suspense>
         )
-      case 'assessments':
+      case 'resources':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <AssessmentTools />
-          </React.Suspense>
-        )
-      case 'treatment':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <TreatmentPlanning />
+            <ResourceLibrary />
           </React.Suspense>
         )
       case 'sessions':
@@ -491,12 +505,6 @@ export const TherapistDashboard: React.FC = () => {
             <WorksheetManagement />
           </React.Suspense>
         )
-      case 'progress':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <ProgressMonitoring />
-          </React.Suspense>
-        )
       case 'communication':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
@@ -507,12 +515,6 @@ export const TherapistDashboard: React.FC = () => {
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <DocumentationCompliance />
-          </React.Suspense>
-        )
-      case 'resources':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <ResourceLibrary />
           </React.Suspense>
         )
       case 'practice':
