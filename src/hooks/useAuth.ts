@@ -20,22 +20,25 @@ export const useAuth = () => {
     try {
       console.log('Fetching profile for user:', user.id)
       
-      // Try database first, fallback to auth metadata if RLS fails
+      // Try database first, handle missing profile gracefully
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single()
+          .maybeSingle() // Use maybeSingle() instead of single() to handle 0 rows gracefully
         
         if (profileData && !profileError) {
           console.log('Using profile from database:', profileData)
           setProfile(profileData)
           setError(null) // Clear any previous errors
           return
+        } else if (profileError && profileError.code !== 'PGRST116') {
+          // Only log non-"no rows" errors as warnings
+          console.warn('Database profile fetch failed:', profileError)
         }
       } catch (dbError) {
-        console.warn('Database profile fetch failed, using auth metadata:', dbError)
+        console.warn('Database profile fetch error, using auth metadata:', dbError)
       }
       
       // Fallback to auth metadata
@@ -47,7 +50,7 @@ export const useAuth = () => {
           last_name: user.user_metadata?.last_name || '',
           email: user.email || ''
         }
-        console.log('Using fallback profile from auth metadata:', fallbackProfile)
+        console.log('Using fallback profile from auth metadata (profile missing in database):', fallbackProfile)
         setProfile(fallbackProfile)
         setError(null) // Clear any previous errors
         return
