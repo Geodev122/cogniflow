@@ -50,6 +50,39 @@ export const useClientData = () => {
   const [loading, setLoading] = useState(true)
   const { profile } = useAuth()
 
+  // Helper function to detect infinite recursion errors
+  const isRecursionError = (error: any): boolean => {
+    if (!error) return false
+    
+    // Check error message directly
+    if (error.message && error.message.includes('infinite recursion')) {
+      return true
+    }
+    
+    // Check stringified error for network errors
+    const errorString = String(error)
+    if (errorString.includes('infinite recursion')) {
+      return true
+    }
+    
+    // Check body property for Supabase network errors
+    if (error.body && typeof error.body === 'string') {
+      try {
+        const bodyObj = JSON.parse(error.body)
+        if (bodyObj.message && bodyObj.message.includes('infinite recursion')) {
+          return true
+        }
+      } catch {
+        // If body is not valid JSON, check as string
+        if (error.body.includes('infinite recursion')) {
+          return true
+        }
+      }
+    }
+    
+    return false
+  }
+
   const fetchWorksheets = useCallback(async () => {
     if (!profile) return
 
@@ -64,8 +97,7 @@ export const useClientData = () => {
         .limit(20)
 
       if (error) {
-        // Handle infinite recursion error by setting empty data
-        if (String(error).includes('infinite recursion')) {
+        if (isRecursionError(error)) {
           console.warn('RLS policy recursion detected for worksheets, using empty data')
           setWorksheets([])
           return
@@ -76,7 +108,9 @@ export const useClientData = () => {
       setWorksheets(data || [])
     } catch (error) {
       console.error('Error fetching worksheets:', error)
-      // Set empty worksheets on any error to prevent app crash
+      if (isRecursionError(error)) {
+        console.warn('RLS policy recursion detected for worksheets in catch block, using empty data')
+      }
       setWorksheets([])
     }
   }, [profile])
@@ -95,8 +129,7 @@ export const useClientData = () => {
         .limit(20)
 
       if (error) {
-        // Handle infinite recursion error by setting empty data
-        if (String(error).includes('infinite recursion')) {
+        if (isRecursionError(error)) {
           console.warn('RLS policy recursion detected for psychometric forms, using empty data')
           setPsychometricForms([])
           return
@@ -107,7 +140,9 @@ export const useClientData = () => {
       setPsychometricForms(data || [])
     } catch (error) {
       console.error('Error fetching psychometric forms:', error)
-      // Set empty forms on any error to prevent app crash
+      if (isRecursionError(error)) {
+        console.warn('RLS policy recursion detected for psychometric forms in catch block, using empty data')
+      }
       setPsychometricForms([])
     }
   }, [profile])
@@ -126,8 +161,7 @@ export const useClientData = () => {
         .limit(20)
 
       if (error) {
-        // Handle infinite recursion error by setting empty data
-        if (String(error).includes('infinite recursion')) {
+        if (isRecursionError(error)) {
           console.warn('RLS policy recursion detected for exercises, using empty data')
           setExercises([])
           return
@@ -138,7 +172,9 @@ export const useClientData = () => {
       setExercises(data || [])
     } catch (error) {
       console.error('Error fetching exercises:', error)
-      // Set empty exercises on any error to prevent app crash
+      if (isRecursionError(error)) {
+        console.warn('RLS policy recursion detected for exercises in catch block, using empty data')
+      }
       setExercises([])
     }
   }, [profile])
@@ -155,7 +191,7 @@ export const useClientData = () => {
         .limit(100)
 
       if (error) {
-        // Handle infinite recursion error by setting empty data
+        if (isRecursionError(error)) {
         if (String(error).includes('infinite recursion')) {
           console.warn('RLS policy recursion detected for progress tracking, using empty data')
           setProgressData([])
@@ -178,13 +214,10 @@ export const useClientData = () => {
       setProgressData(formattedData)
     } catch (error) {
       console.error('Error fetching progress data:', error)
-      // Handle infinite recursion error by setting empty data
+      if (isRecursionError(error)) {
       if (String(error).includes('infinite recursion')) {
         console.warn('RLS policy recursion detected for progress tracking, using empty data')
-        setProgressData([])
-        return
       }
-      // Set empty progress data on any error to prevent app crash
       setProgressData([])
     }
   }, [profile])
@@ -202,8 +235,7 @@ export const useClientData = () => {
       ])
     } catch (error) {
       console.error('Error fetching client data:', error)
-      // Handle any remaining errors gracefully
-      if (String(error).includes('infinite recursion')) {
+      if (isRecursionError(error)) {
         console.warn('RLS policy recursion detected in fetchAllData, continuing with available data')
       }
     } finally {
