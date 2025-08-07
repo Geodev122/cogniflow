@@ -14,11 +14,18 @@ import {
   Gamepad2,
   Play,
   Trophy,
-  Target
+  Target,
+  Menu,
+  X,
+  User,
+  MessageSquare,
+  Calendar,
+  Bell
 } from 'lucide-react'
 
 export const ClientDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'worksheets' | 'assessments' | 'exercises' | 'progress'>('overview')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [selectedWorksheet, setSelectedWorksheet] = useState<any>(null)
   const [selectedForm, setSelectedForm] = useState<any>(null)
   const [selectedExercise, setSelectedExercise] = useState<any>(null)
@@ -105,23 +112,53 @@ export const ClientDashboard: React.FC = () => {
     return (
     <div className="space-y-6">
       {/* Welcome Message */}
-      <div className="bg-gradient-to-r from-blue-500 to-teal-500 text-white p-6 rounded-lg">
-        <h2 className="text-2xl font-bold mb-2">Welcome back!</h2>
-        <p className="text-blue-100">Continue your therapeutic journey with your assigned activities.</p>
+      <div className="bg-gradient-to-r from-blue-500 to-teal-500 text-white p-4 sm:p-6 rounded-lg">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold mb-2">Welcome back!</h2>
+            <p className="text-blue-100 text-sm sm:text-base">Continue your therapeutic journey with your assigned activities.</p>
+          </div>
+          <div className="flex items-center space-x-2 text-blue-100">
+            <Bell className="w-5 h-5" />
+            <span className="text-sm">3 new</span>
+          </div>
+        </div>
+        
+        {/* Quick Actions for Mobile */}
+        <div className="mt-4 flex flex-wrap gap-2 sm:hidden">
+          <button
+            onClick={() => setActiveTab('worksheets')}
+            className="px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs font-medium"
+          >
+            Worksheets
+          </button>
+          <button
+            onClick={() => setActiveTab('assessments')}
+            className="px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs font-medium"
+          >
+            Assessments
+          </button>
+          <button
+            onClick={() => setActiveTab('exercises')}
+            className="px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs font-medium"
+          >
+            Exercises
+          </button>
+        </div>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6">
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-          <div className="p-5">
+          <div className="p-3 sm:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <FileText className="h-6 w-6 text-blue-600" />
+                <FileText className="h-4 w-4 sm:h-6 sm:w-6 text-blue-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-2 sm:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Worksheets</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">{stats.worksheets}</dd>
+                  <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Worksheets</dt>
+                  <dd className="text-lg sm:text-2xl font-semibold text-gray-900">{stats.worksheets}</dd>
                 </dl>
               </div>
             </div>
@@ -129,15 +166,15 @@ export const ClientDashboard: React.FC = () => {
         </div>
 
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-          <div className="p-5">
+          <div className="p-3 sm:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ClipboardList className="h-6 w-6 text-purple-600" />
+                <ClipboardList className="h-4 w-4 sm:h-6 sm:w-6 text-purple-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-2 sm:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Assessments</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">{stats.assessments}</dd>
+                  <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Assessments</dt>
+                  <dd className="text-lg sm:text-2xl font-semibold text-gray-900">{stats.assessments}</dd>
                 </dl>
               </div>
             </div>
@@ -145,15 +182,15 @@ export const ClientDashboard: React.FC = () => {
         </div>
 
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-          <div className="p-5">
+          <div className="p-3 sm:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Gamepad2 className="h-6 w-6 text-green-600" />
+                <Gamepad2 className="h-4 w-4 sm:h-6 sm:w-6 text-green-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-2 sm:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Exercises</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">{stats.exercises}</dd>
+                  <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Exercises</dt>
+                  <dd className="text-lg sm:text-2xl font-semibold text-gray-900">{stats.exercises}</dd>
                 </dl>
               </div>
             </div>
@@ -161,15 +198,15 @@ export const ClientDashboard: React.FC = () => {
         </div>
 
         <div className="bg-white overflow-hidden shadow-sm rounded-lg border border-gray-200">
-          <div className="p-5">
+          <div className="p-3 sm:p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Trophy className="h-6 w-6 text-yellow-600" />
+                <Trophy className="h-4 w-4 sm:h-6 sm:w-6 text-yellow-600" />
               </div>
-              <div className="ml-5 w-0 flex-1">
+              <div className="ml-2 sm:ml-5 w-0 flex-1">
                 <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Completed</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">{stats.completed}</dd>
+                  <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Completed</dt>
+                  <dd className="text-lg sm:text-2xl font-semibold text-gray-900">{stats.completed}</dd>
                 </dl>
               </div>
             </div>
@@ -178,7 +215,7 @@ export const ClientDashboard: React.FC = () => {
       </div>
 
       {/* Recent Activities */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div className="bg-white shadow-sm rounded-lg border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">Recent Assignments</h3>
@@ -211,7 +248,7 @@ export const ClientDashboard: React.FC = () => {
             <h3 className="text-lg font-medium text-gray-900">Quick Actions</h3>
           </div>
           <div className="p-6">
-            <div className="space-y-3">
+            <div className="space-y-3 hidden sm:block">
               <button
                 onClick={() => setActiveTab('worksheets')}
                 className="w-full flex items-center justify-between p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
@@ -243,6 +280,24 @@ export const ClientDashboard: React.FC = () => {
                   <span className="font-medium text-green-900">Play Exercises</span>
                 </div>
                 <ChevronRight className="w-5 h-5 text-green-600" />
+              </button>
+            </div>
+            
+            {/* Mobile Quick Actions */}
+            <div className="grid grid-cols-2 gap-2 sm:hidden">
+              <button
+                onClick={() => setActiveTab('worksheets')}
+                className="p-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors text-center"
+              >
+                <FileText className="w-6 h-6 text-blue-600 mx-auto mb-1" />
+                <span className="text-xs font-medium text-blue-900">Worksheets</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('assessments')}
+                className="p-3 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors text-center"
+              >
+                <ClipboardList className="w-6 h-6 text-purple-600 mx-auto mb-1" />
+                <span className="text-xs font-medium text-purple-900">Assessments</span>
               </button>
             </div>
           </div>
@@ -476,9 +531,20 @@ export const ClientDashboard: React.FC = () => {
   return (
     <Layout title="My Dashboard">
       <div className="space-y-6">
-        {/* Navigation Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
+        {/* Mobile Menu Button */}
+        <div className="sm:hidden flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">My Dashboard</h2>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+
+        {/* Navigation Tabs - Desktop */}
+        <div className="hidden sm:block border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8 overflow-x-auto">
             {[
               { id: 'overview', name: 'Overview', icon: Target },
               { id: 'worksheets', name: 'Worksheets', icon: FileText },
@@ -491,7 +557,7 @@ export const ClientDashboard: React.FC = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
+                  className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -504,6 +570,47 @@ export const ClientDashboard: React.FC = () => {
             })}
           </nav>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        {mobileMenuOpen && (
+          <div className="sm:hidden bg-white border border-gray-200 rounded-lg shadow-lg">
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { id: 'overview', name: 'Overview', icon: Target, color: 'blue' },
+                  { id: 'worksheets', name: 'Worksheets', icon: FileText, color: 'green' },
+                  { id: 'assessments', name: 'Assessments', icon: ClipboardList, color: 'purple' },
+                  { id: 'exercises', name: 'Exercises', icon: Gamepad2, color: 'orange' },
+                  { id: 'progress', name: 'Progress', icon: TrendingUp, color: 'teal' }
+                ].map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id as any)
+                        setMobileMenuOpen(false)
+                      }}
+                      className={`p-4 rounded-lg border-2 transition-all ${
+                        isActive
+                          ? `border-${tab.color}-500 bg-${tab.color}-50`
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Icon className={`w-6 h-6 mx-auto mb-2 ${
+                        isActive ? `text-${tab.color}-600` : 'text-gray-400'
+                      }`} />
+                      <span className={`text-sm font-medium ${
+                        isActive ? `text-${tab.color}-900` : 'text-gray-700'
+                      }`}>{tab.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab Content */}
         {activeTab === 'overview' && renderOverview()}

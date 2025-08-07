@@ -21,6 +21,10 @@ import {
   CheckCircle,
   AlertTriangle,
   ChevronRight
+  ChevronRight,
+  Menu,
+  X,
+  User
 } from 'lucide-react'
 
 // Lazy load components for better performance
@@ -47,6 +51,7 @@ interface DashboardStats {
 
 export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
@@ -144,29 +149,29 @@ export const TherapistDashboard: React.FC = () => {
   const renderOverview = () => (
     <div className="space-y-6">
       {/* Welcome Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-8 rounded-xl shadow-lg">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 sm:p-8 rounded-xl shadow-lg">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-bold mb-2">Welcome back, Dr. {profile?.first_name}!</h2>
-            <p className="text-blue-100 text-lg">Managing care for {stats.totalClients} active clients</p>
+            <h2 className="text-xl sm:text-3xl font-bold mb-2">Welcome back, Dr. {profile?.first_name}!</h2>
+            <p className="text-blue-100 text-sm sm:text-lg">Managing care for {stats.totalClients} active clients</p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">{new Date().toLocaleDateString('en-US', { weekday: 'long' })}</div>
-            <div className="text-blue-200">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
+          <div className="text-right hidden sm:block">
+            <div className="text-lg sm:text-2xl font-bold">{new Date().toLocaleDateString('en-US', { weekday: 'long' })}</div>
+            <div className="text-blue-200 text-sm">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div>
           </div>
         </div>
       </div>
 
       {/* Client-Focused Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Active Clients</p>
-              <p className="text-3xl font-bold text-gray-900">{stats.totalClients}</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-600">Active Clients</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalClients}</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-full">
-              <Users className="h-6 w-6 text-blue-600" />
+            <div className="p-2 sm:p-3 bg-blue-100 rounded-full">
+              <Users className="h-4 w-4 sm:h-6 sm:w-6 text-blue-600" />
             </div>
           </div>
         </div>
@@ -533,28 +538,79 @@ export const TherapistDashboard: React.FC = () => {
   return (
     <Layout title="Practice Management Dashboard">
       <div className="space-y-6">
-        {/* Navigation Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 overflow-x-auto">
+        {/* Mobile Menu Button */}
+        <div className="sm:hidden flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">Practice Dashboard</h2>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+
+        {/* Navigation Tabs - Desktop */}
+        <div className="hidden sm:block border-b border-gray-200">
+          <nav className="-mb-px flex space-x-4 lg:space-x-8 overflow-x-auto">
             {tabs.map((tab) => {
               const Icon = tab.icon
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  className={`flex items-center space-x-1 sm:space-x-2 py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>{tab.name}</span>
                 </button>
               )
             })}
           </nav>
         </div>
+
+        {/* Mobile Navigation Menu */}
+        {mobileMenuOpen && (
+          <div className="sm:hidden bg-white border border-gray-200 rounded-lg shadow-lg">
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3">
+                {tabs.slice(0, 8).map((tab) => {
+                  const Icon = tab.icon
+                  const isActive = activeTab === tab.id
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        setActiveTab(tab.id)
+                        setMobileMenuOpen(false)
+                      }}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        isActive
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <Icon className={`w-5 h-5 mx-auto mb-1 ${
+                        isActive ? 'text-blue-600' : 'text-gray-400'
+                      }`} />
+                      <span className={`text-xs font-medium block ${
+                        isActive ? 'text-blue-900' : 'text-gray-700'
+                      }`}>{tab.name.split(' ')[0]}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {tabs.length > 8 && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-500 text-center">Swipe left to see more options on desktop</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Tab Content */}
         {renderTabContent()}
