@@ -52,7 +52,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, title }) => {
                 className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
               >
                 <LogOut className="w-4 h-4" />
-          </div>
+              </button>
+            </div>
         </div>
       </header>
 
