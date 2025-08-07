@@ -192,6 +192,7 @@ export const useClientData = () => {
 
       if (error) {
         if (isRecursionError(error)) {
+        }
         if (String(error).includes('infinite recursion')) {
           console.warn('RLS policy recursion detected for progress tracking, using empty data')
           setProgressData([])
@@ -215,6 +216,7 @@ export const useClientData = () => {
     } catch (error) {
       console.error('Error fetching progress data:', error)
       if (isRecursionError(error)) {
+      }
       if (String(error).includes('infinite recursion')) {
         console.warn('RLS policy recursion detected for progress tracking, using empty data')
       }
