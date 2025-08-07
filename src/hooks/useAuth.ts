@@ -16,23 +16,24 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchProfile = useCallback(async (userId: string) => {
+  const fetchProfile = useCallback(async (user: User) => {
     try {
       console.log('Fetching profile for user:', userId)
       
-      // Try database first, fallback to auth metadata if RLS fails
-      const { data: { user } } = await supabase.auth.getUser()
+      console.log('Fetching profile for user:', user.id)
       
+      // Try database first, fallback to auth metadata if RLS fails
       try {
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', userId)
+          .eq('id', user.id)
           .single()
         
         if (profileData && !profileError) {
           console.log('Using profile from database:', profileData)
           setProfile(profileData)
+          setError(null) // Clear any previous errors
           return
         }
       } catch (dbError) {
@@ -50,6 +51,7 @@ export const useAuth = () => {
         }
         console.log('Using fallback profile from auth metadata:', fallbackProfile)
         setProfile(fallbackProfile)
+        setError(null) // Clear any previous errors
         return
       }
       
@@ -83,7 +85,7 @@ export const useAuth = () => {
         
         if (session?.user) {
           setUser(session.user)
-          await fetchProfile(session.user.id)
+          await fetchProfile(session.user)
         } else {
           setUser(null)
           setProfile(null)
@@ -118,7 +120,7 @@ export const useAuth = () => {
           try {
             if (event === 'SIGNED_IN' && session?.user) {
               setUser(session.user)
-              await fetchProfile(session.user.id)
+              await fetchProfile(session.user)
             } else if (event === 'SIGNED_OUT') {
               setUser(null)
               setProfile(null)
