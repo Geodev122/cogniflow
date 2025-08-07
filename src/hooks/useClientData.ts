@@ -153,7 +153,6 @@ export const useClientData = () => {
         .eq('client_id', profile.id)
         .order('recorded_at', { ascending: true })
         .limit(100)
-        .limit(100)
 
       if (error) {
         // Handle infinite recursion error by setting empty data
@@ -165,25 +164,11 @@ export const useClientData = () => {
         throw error
       }
 
-      const formattedData = data?.map(item => ({
-        date: item.recorded_at,
-        value: item.value,
-      if (error) {
-        // Handle infinite recursion error by setting empty data
-        if (String(error).includes('infinite recursion')) {
-          console.warn('RLS policy recursion detected for progress tracking, using empty data')
-          setProgressData([])
-          return
-        }
-        throw error
-      }
-      })) || []
       const formattedData = data?.map(item => ({
         date: item.recorded_at,
         value: item.value,
         metric_type: item.metric_type
       })) || []
-      setProgressData([])
       setProgressData(formattedData)
     } catch (error) {
       console.error('Error fetching progress data:', error)
