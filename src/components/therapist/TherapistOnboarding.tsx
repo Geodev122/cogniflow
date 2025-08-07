@@ -16,7 +16,8 @@ import {
   Video,
   FileText,
   Globe,
-  Phone
+  Phone,
+  X
 } from 'lucide-react'
 
 interface OnboardingData {
@@ -92,8 +93,14 @@ const LANGUAGES = [
   'Other'
 ]
 
-export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) => void }> = ({ onComplete }) => {
+interface TherapistOnboardingProps {
+  onComplete: (data: OnboardingData) => void
+  onClose: () => void
+}
+
+export const TherapistOnboarding: React.FC<TherapistOnboardingProps> = ({ onComplete, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1)
+  const [showConfirmation, setShowConfirmation] = useState(false)
   const [formData, setFormData] = useState<OnboardingData>({
     fullName: '',
     profilePicture: null,
@@ -138,6 +145,25 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
     }))
   }
 
+  const updatePracticeLocation = (index: number, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      practiceLocations: prev.practiceLocations.map((location, i) => 
+        i === index ? { ...location, [field]: value } : location
+      )
+    }))
+  }
+
+  const setPrimaryLocation = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      practiceLocations: prev.practiceLocations.map((location, i) => ({
+        ...location,
+        isPrimary: i === index
+      }))
+    }))
+  }
+
   const addLicense = () => {
     setFormData(prev => ({
       ...prev,
@@ -152,15 +178,19 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
     }))
   }
 
+  const updateLicense = (index: number, field: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      licenses: prev.licenses.map((license, i) => 
+        i === index ? { ...license, [field]: value } : license
+      )
+    }))
+  }
+
   const handleFileUpload = (field: string, file: File | null, index?: number) => {
     if (index !== undefined) {
       if (field === 'licenses') {
-        setFormData(prev => ({
-          ...prev,
-          licenses: prev.licenses.map((license, i) => 
-            i === index ? { ...license, document: file } : license
-          )
-        }))
+        updateLicense(index, 'document', file)
       }
     } else {
       updateFormData(field, file)
@@ -172,7 +202,11 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
       case 1:
         return !!(formData.fullName && formData.profilePicture && formData.whatsappNumber)
       case 2:
-        return !!(formData.specializations.length > 0 && formData.languages.length > 0 && formData.qualifications)
+        const hasSpecializations = formData.specializations.length > 0
+        const hasOtherSpecialization = !formData.specializations.includes('Other') || formData.otherSpecializations.trim()
+        const hasLanguages = formData.languages.length > 0
+        const hasOtherLanguage = !formData.languages.includes('Other') || formData.otherLanguages.trim()
+        return !!(hasSpecializations && hasOtherSpecialization && hasLanguages && hasOtherLanguage && formData.qualifications)
       case 3:
         return !!(formData.bio && formData.bio.length >= 150)
       case 4:
@@ -198,8 +232,31 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
 
   const handleSubmit = () => {
     if (validateStep(6)) {
-      onComplete(formData)
+      setShowConfirmation(true)
     }
+  }
+
+  const handleConfirmationClose = () => {
+    setShowConfirmation(false)
+    onComplete(formData)
+  }
+
+  const toggleSpecialization = (spec: string) => {
+    setFormData(prev => ({
+      ...prev,
+      specializations: prev.specializations.includes(spec)
+        ? prev.specializations.filter(s => s !== spec)
+        : [...prev.specializations, spec]
+    }))
+  }
+
+  const toggleLanguage = (lang: string) => {
+    setFormData(prev => ({
+      ...prev,
+      languages: prev.languages.includes(lang)
+        ? prev.languages.filter(l => l !== lang)
+        : [...prev.languages, lang]
+    }))
   }
 
   const renderProgressBar = () => (
@@ -268,12 +325,12 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
           Professional Profile Picture *
         </label>
         <div className="flex items-center space-x-4">
-          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center border-2 border-dashed border-gray-300">
+          <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center border-2 border-dashed border-gray-300 overflow-hidden">
             {formData.profilePicture ? (
               <img 
                 src={URL.createObjectURL(formData.profilePicture)} 
                 alt="Profile" 
-                className="w-full h-full rounded-full object-cover"
+                className="w-full h-full object-cover"
               />
             ) : (
               <Camera className="w-8 h-8 text-gray-400" />
@@ -333,19 +390,14 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Specializations *
         </label>
+        <p className="text-xs text-gray-500 mb-3">Select all areas you specialize in. Hold Ctrl/Cmd to select multiple.</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto border border-gray-300 rounded-lg p-3">
           {SPECIALIZATIONS.map((spec) => (
             <label key={spec} className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.specializations.includes(spec)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    updateFormData('specializations', [...formData.specializations, spec])
-                  } else {
-                    updateFormData('specializations', formData.specializations.filter(s => s !== spec))
-                  }
-                }}
+                onChange={() => toggleSpecialization(spec)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="text-sm text-gray-700">{spec}</span>
@@ -357,7 +409,7 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
             type="text"
             value={formData.otherSpecializations}
             onChange={(e) => updateFormData('otherSpecializations', e.target.value)}
-            placeholder="List other specializations, separated by commas"
+            placeholder="If you selected 'Other' above, please list them here, separated by commas."
             className="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         )}
@@ -367,19 +419,14 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Languages *
         </label>
+        <p className="text-xs text-gray-500 mb-3">Select all languages in which you can conduct therapy sessions fluently.</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-3">
           {LANGUAGES.map((lang) => (
             <label key={lang} className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.languages.includes(lang)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    updateFormData('languages', [...formData.languages, lang])
-                  } else {
-                    updateFormData('languages', formData.languages.filter(l => l !== lang))
-                  }
-                }}
+                onChange={() => toggleLanguage(lang)}
                 className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
               />
               <span className="text-sm text-gray-700">{lang}</span>
@@ -391,7 +438,7 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
             type="text"
             value={formData.otherLanguages}
             onChange={(e) => updateFormData('otherLanguages', e.target.value)}
-            placeholder="List other languages, separated by commas"
+            placeholder="If you selected 'Other', please list other languages here, separated by commas."
             className="mt-2 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         )}
@@ -494,6 +541,7 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
         <label className="block text-sm font-medium text-gray-700 mb-4">
           Practice Locations *
         </label>
+        <p className="text-xs text-gray-500 mb-4">If you only practice online, you can enter 'Online Only' as your primary address.</p>
         <div className="space-y-4">
           {formData.practiceLocations.map((location, index) => (
             <div key={index} className="border border-gray-300 rounded-lg p-4">
@@ -502,11 +550,7 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
                   <input
                     type="text"
                     value={location.address}
-                    onChange={(e) => {
-                      const newLocations = [...formData.practiceLocations]
-                      newLocations[index].address = e.target.value
-                      updateFormData('practiceLocations', newLocations)
-                    }}
+                    onChange={(e) => updatePracticeLocation(index, 'address', e.target.value)}
                     placeholder="Enter the full street address. For online, type 'Online Only'."
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -515,16 +559,10 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
                       type="radio"
                       name="primaryLocation"
                       checked={location.isPrimary}
-                      onChange={() => {
-                        const newLocations = formData.practiceLocations.map((loc, i) => ({
-                          ...loc,
-                          isPrimary: i === index
-                        }))
-                        updateFormData('practiceLocations', newLocations)
-                      }}
+                      onChange={() => setPrimaryLocation(index)}
                       className="mr-2"
                     />
-                    <span className="text-sm text-gray-600">Primary location</span>
+                    <span className="text-sm text-gray-600">Primary location (Your main practice location will be shown first)</span>
                   </label>
                 </div>
                 {formData.practiceLocations.length > 1 && (
@@ -561,6 +599,7 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
         <label className="block text-sm font-medium text-gray-700 mb-4">
           Professional Licenses *
         </label>
+        <p className="text-xs text-gray-500 mb-4">You must upload at least one valid professional license or certification.</p>
         <div className="space-y-4">
           {formData.licenses.map((license, index) => (
             <div key={index} className="border border-gray-300 rounded-lg p-4">
@@ -572,11 +611,7 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
                   <input
                     type="text"
                     value={license.name}
-                    onChange={(e) => {
-                      const newLicenses = [...formData.licenses]
-                      newLicenses[index].name = e.target.value
-                      updateFormData('licenses', newLicenses)
-                    }}
+                    onChange={(e) => updateLicense(index, 'name', e.target.value)}
                     placeholder="e.g., Licensed Professional Counselor"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -588,12 +623,8 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
                   <input
                     type="text"
                     value={license.country}
-                    onChange={(e) => {
-                      const newLicenses = [...formData.licenses]
-                      newLicenses[index].country = e.target.value
-                      updateFormData('licenses', newLicenses)
-                    }}
-                    placeholder="e.g., USA, Egypt"
+                    onChange={(e) => updateLicense(index, 'country', e.target.value)}
+                    placeholder="The country where this license is valid (e.g., USA, Egypt)"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
@@ -746,45 +777,92 @@ export const TherapistOnboarding: React.FC<{ onComplete: (data: OnboardingData) 
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          {renderProgressBar()}
-          
-          <div className="min-h-96">
-            {renderCurrentStep()}
+  const renderConfirmation = () => (
+    <div className="text-center space-y-6">
+      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+        <Check className="w-10 h-10 text-green-600" />
+      </div>
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Profile Submitted!</h2>
+        <p className="text-gray-600 max-w-md mx-auto">
+          Thank you for completing your profile. Our team will review your information and licenses within 2-3 business days. 
+          You'll be notified via email once your profile is approved and live on the platform.
+        </p>
+      </div>
+      <button
+        onClick={handleConfirmationClose}
+        className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+      >
+        Go to My Dashboard
+      </button>
+    </div>
+  )
+
+  if (showConfirmation) {
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75">
+        <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+          <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+              {renderConfirmation()}
+            </div>
           </div>
+        </div>
+      </div>
+    )
+  }
 
-          <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
-            <button
-              onClick={prevStep}
-              disabled={currentStep === 1}
-              className="inline-flex items-center px-6 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Previous
-            </button>
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">Therapist Onboarding</h1>
+              <button
+                onClick={onClose}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
-            {currentStep < 6 ? (
+            {renderProgressBar()}
+            
+            <div className="min-h-96">
+              {renderCurrentStep()}
+            </div>
+
+            <div className="flex justify-between mt-8 pt-6 border-t border-gray-200">
               <button
-                onClick={nextStep}
-                disabled={!validateStep(currentStep)}
-                className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={prevStep}
+                disabled={currentStep === 1}
+                className="inline-flex items-center px-6 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next: {steps[currentStep]?.title}
-                <ChevronRight className="w-4 h-4 ml-2" />
+                <ChevronLeft className="w-4 h-4 mr-2" />
+                Previous
               </button>
-            ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={!validateStep(6)}
-                className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Submit Profile for Review
-                <Check className="w-4 h-4 ml-2" />
-              </button>
-            )}
+
+              {currentStep < 6 ? (
+                <button
+                  onClick={nextStep}
+                  disabled={!validateStep(currentStep)}
+                  className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next: {steps[currentStep]?.title}
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleSubmit}
+                  disabled={!validateStep(6)}
+                  className="inline-flex items-center px-6 py-3 border border-transparent rounded-lg text-sm font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Submit Profile for Review
+                  <Check className="w-4 h-4 ml-2" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

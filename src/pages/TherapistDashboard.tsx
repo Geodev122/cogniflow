@@ -52,6 +52,7 @@ export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
     activeClients: 0,
@@ -146,7 +147,7 @@ export const TherapistDashboard: React.FC = () => {
 
   const handleOnboardingComplete = (data: any) => {
     console.log('Onboarding completed:', data)
-    setShowOnboarding(false)
+    setShowOnboardingModal(false)
     // Here you would typically save the data to your backend
   }
 
@@ -296,7 +297,7 @@ export const TherapistDashboard: React.FC = () => {
               </button>
               
               <button
-                onClick={() => setShowOnboarding(true)}
+                onClick={() => setShowOnboardingModal(true)}
                 className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
               >
                 <div className="flex items-center space-x-3">
@@ -428,15 +429,11 @@ export const TherapistDashboard: React.FC = () => {
       </div>
 
       {/* Onboarding Modal */}
-      {showOnboarding && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75" onClick={() => setShowOnboarding(false)} />
-            <div className="relative w-full max-w-6xl mx-4">
-              <TherapistOnboarding onComplete={handleOnboardingComplete} />
-            </div>
-          </div>
-        </div>
+      {showOnboardingModal && (
+        <TherapistOnboarding 
+          onComplete={handleOnboardingComplete}
+          onClose={() => setShowOnboardingModal(false)}
+        />
       )}
     </div>
   )
@@ -451,7 +448,7 @@ export const TherapistDashboard: React.FC = () => {
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Complete Your Profile</h3>
           <p className="text-gray-600 mb-6">Set up your professional profile to start accepting clients.</p>
           <button
-            onClick={() => setShowOnboarding(true)}
+            onClick={() => setShowOnboardingModal(true)}
             className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <User className="w-5 h-5 mr-2" />
