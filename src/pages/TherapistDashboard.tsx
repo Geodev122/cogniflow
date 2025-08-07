@@ -20,7 +20,6 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  ChevronRight
   ChevronRight,
   Menu,
   X,
