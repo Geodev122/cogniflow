@@ -39,6 +39,10 @@ export type Database = {
           first_name: string
           last_name: string
           email: string
+          patient_code: string | null
+          whatsapp_number: string | null
+          password_set: boolean
+          created_by_therapist: string | null
           created_at: string
         }
         Insert: {
@@ -47,6 +51,10 @@ export type Database = {
           first_name: string
           last_name: string
           email: string
+          patient_code?: string | null
+          whatsapp_number?: string | null
+          password_set?: boolean
+          created_by_therapist?: string | null
           created_at?: string
         }
         Update: {
@@ -55,6 +63,10 @@ export type Database = {
           first_name?: string
           last_name?: string
           email?: string
+          patient_code?: string | null
+          whatsapp_number?: string | null
+          password_set?: boolean
+          created_by_therapist?: string | null
           created_at?: string
         }
       }

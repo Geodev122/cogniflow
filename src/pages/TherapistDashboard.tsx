@@ -156,13 +156,13 @@ export const TherapistDashboard: React.FC = () => {
               <User className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">My Profile Completion</h3>
-              <p className="text-sm text-gray-600">Complete your professional profile to get listed on TheraWay</p>
+              <h3 className="text-lg font-semibold text-gray-900">TheraWay Profile Setup</h3>
+              <p className="text-sm text-gray-600">Complete your profile to be listed on TheraWay directory</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-16 h-2 bg-gray-200 rounded-full">
-              <div className="w-4 h-2 bg-amber-500 rounded-full"></div>
+              <div className="w-4 h-2 bg-amber-500 rounded-full transition-all duration-300"></div>
             </div>
             <span className="text-sm text-gray-600">25%</span>
           </div>
@@ -187,14 +187,14 @@ export const TherapistDashboard: React.FC = () => {
         
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-600">
-            Complete your profile to be featured on TheraWay directory and attract new clients
+            Complete your CogniFlow profile to automatically be listed on TheraWay and start attracting new clients
           </p>
           <button
             onClick={() => setShowOnboardingModal(true)}
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <User className="w-4 h-4 mr-2" />
-            Continue Setup
+            Complete Profile
           </button>
         </div>
       </div>
@@ -577,8 +577,7 @@ export const TherapistDashboard: React.FC = () => {
     <Layout title="Therapist Dashboard">
       <div className="space-y-6">
         {/* Mobile Menu Button */}
-        <div className="sm:hidden flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Therapist Portal</h2>
+        <div className="sm:hidden flex items-center justify-end">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"

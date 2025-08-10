@@ -10,7 +10,7 @@ export const Register: React.FC = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'client' as 'therapist' | 'client'
+    role: 'therapist' as 'therapist' // Only therapists can register
   })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -71,7 +71,7 @@ export const Register: React.FC = () => {
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">Create your account</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Join CogniFlow to start your therapeutic journey
+            Join CogniFlow as a licensed therapist
           </p>
         </div>
 
@@ -110,20 +110,14 @@ export const Register: React.FC = () => {
               </div>
             </div>
 
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                I am a...
-              </label>
-              <select
-                id="role"
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="client">Client</option>
-                <option value="therapist">Therapist</option>
-              </select>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center space-x-2">
+                <Brain className="w-5 h-5 text-blue-600" />
+                <span className="font-medium text-blue-900">Therapist Registration</span>
+              </div>
+              <p className="text-blue-700 text-sm mt-1">
+                Only licensed therapists can create accounts. Client accounts are created by their therapists.
+              </p>
             </div>
 
             <div>

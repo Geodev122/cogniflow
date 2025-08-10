@@ -101,6 +101,7 @@ interface TherapistOnboardingProps {
 export const TherapistOnboarding: React.FC<TherapistOnboardingProps> = ({ onComplete, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1)
   const [showConfirmation, setShowConfirmation] = useState(false)
+  const [profileCompletion, setProfileCompletion] = useState(0)
   const [formData, setFormData] = useState<OnboardingData>({
     fullName: '',
     profilePicture: null,
@@ -129,6 +130,33 @@ export const TherapistOnboarding: React.FC<TherapistOnboardingProps> = ({ onComp
 
   const updateFormData = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+    // Calculate completion percentage
+    calculateCompletion()
+  }
+
+  const calculateCompletion = () => {
+    let completed = 0
+    const totalSteps = 6
+    
+    // Step 1: Basic Info
+    if (formData.fullName && formData.profilePicture && formData.whatsappNumber) completed++
+    
+    // Step 2: Expertise
+    if (formData.specializations.length > 0 && formData.languages.length > 0 && formData.qualifications) completed++
+    
+    // Step 3: Story
+    if (formData.bio && formData.bio.length >= 150) completed++
+    
+    // Step 4: Practice Details
+    if (formData.practiceLocations.length > 0 && formData.practiceLocations.every(loc => loc.address)) completed++
+    
+    // Step 5: Verification
+    if (formData.licenses.length > 0 && formData.licenses.every(license => license.name && license.country && license.document)) completed++
+    
+    // Step 6: Membership
+    if (formData.paymentReceipt && formData.termsAccepted) completed++
+    
+    setProfileCompletion(Math.round((completed / totalSteps) * 100))
   }
 
   const addPracticeLocation = () => {
@@ -785,15 +813,24 @@ export const TherapistOnboarding: React.FC<TherapistOnboardingProps> = ({ onComp
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Profile Submitted!</h2>
         <p className="text-gray-600 max-w-md mx-auto">
-          Thank you for completing your profile. Our team will review your information and licenses within 2-3 business days. 
-          You'll be notified via email once your profile is approved and live on the platform.
+          Thank you for completing your CogniFlow profile. Once approved, your profile data will be automatically transferred to TheraWay, 
+          our therapist directory platform, where potential clients can find and book with you.
         </p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+          <h3 className="font-medium text-blue-900 mb-2">What happens next?</h3>
+          <ul className="text-sm text-blue-800 space-y-1 text-left">
+            <li>• Profile review within 2-3 business days</li>
+            <li>• Automatic listing on TheraWay directory</li>
+            <li>• Email notification when live</li>
+            <li>• Start receiving client inquiries</li>
+          </ul>
+        </div>
       </div>
       <button
         onClick={handleConfirmationClose}
         className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
       >
-        Go to My Dashboard
+        Continue to Dashboard
       </button>
     </div>
   )
