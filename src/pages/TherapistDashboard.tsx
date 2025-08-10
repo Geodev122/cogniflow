@@ -25,6 +25,7 @@ import {
   X,
   User
 } from 'lucide-react'
+import { Navigate } from 'react-router-dom'
 
 // Lazy load components for better performance
 const ClientManagement = React.lazy(() => import('../components/therapist/ClientManagement').then(m => ({ default: m.ClientManagement })))
@@ -34,6 +35,7 @@ const CommunicationTools = React.lazy(() => import('../components/therapist/Comm
 const DocumentationCompliance = React.lazy(() => import('../components/therapist/DocumentationCompliance').then(m => ({ default: m.DocumentationCompliance })))
 const ResourceLibrary = React.lazy(() => import('../components/therapist/ResourceLibrary').then(m => ({ default: m.ResourceLibrary })))
 const PracticeManagement = React.lazy(() => import('../components/therapist/PracticeManagement').then(m => ({ default: m.PracticeManagement })))
+const AssessmentTools = React.lazy(() => import('../components/therapist/AssessmentTools').then(m => ({ default: m.AssessmentTools })))
 
 interface DashboardStats {
   totalClients: number
@@ -129,11 +131,13 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'overview', name: 'Overview', icon: Target },
     { id: 'clients', name: 'Client Management', icon: Users },
     { id: 'cases', name: 'Case Management', icon: FileText },
+    { id: 'assessments', name: 'Assessments', icon: ClipboardList },
     { id: 'sessions', name: 'Session Management', icon: Calendar },
     { id: 'resources', name: 'Resource Library', icon: Library },
     { id: 'communication', name: 'Communication', icon: MessageSquare },
     { id: 'documentation', name: 'Documentation', icon: FileText },
-    { id: 'practice', name: 'Practice Management', icon: BarChart3 }
+    { id: 'practice', name: 'Practice Management', icon: BarChart3 },
+    { id: 'profile', name: 'Profile', icon: User },
   ], [])
 
   const handleOnboardingComplete = (data: any) => {
@@ -469,6 +473,31 @@ export const TherapistDashboard: React.FC = () => {
     </div>
   )
 
+  // TODO: Replace mockTherapist with actual data from the database
+  const mockTherapist = {
+    id: profile?.id || '',
+    fullName: `${profile?.first_name} ${profile?.last_name}`,
+    profilePicture: '',
+    whatsappNumber: '123-456-7890',
+    email: profile?.email || '',
+    specializations: ['Cognitive Behavioral Therapy (CBT)', 'Mindfulness-Based Cognitive Therapy (MBCT)'],
+    languages: ['English', 'Spanish'],
+    qualifications: 'Licensed Professional Counselor (LPC)',
+    bio: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+    introVideo: '',
+    practiceLocations: [{ address: '123 Main St, Anytown USA', isPrimary: true }],
+    verificationStatus: 'verified',
+    membershipStatus: 'active',
+    joinDate: '2023-01-01',
+    stats: {
+      totalClients: 10,
+      yearsExperience: 5,
+      rating: 4.8,
+      reviewCount: 25,
+      responseTime: '24 hours',
+    },
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
@@ -483,6 +512,12 @@ export const TherapistDashboard: React.FC = () => {
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <CaseManagement />
+          </React.Suspense>
+        )
+      case 'assessments':
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <AssessmentTools />
           </React.Suspense>
         )
       case 'resources':
@@ -514,6 +549,14 @@ export const TherapistDashboard: React.FC = () => {
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <PracticeManagement />
           </React.Suspense>
+        )
+      case 'profile':
+        return (
+          <TherapistProfile
+            therapist={mockTherapist}
+            isOwnProfile={true}
+            onEdit={() => setShowOnboardingModal(true)}
+          />
         )
       default:
         return renderOverview()
