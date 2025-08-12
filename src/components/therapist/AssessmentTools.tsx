@@ -12,19 +12,20 @@ import {
   BarChart3,
   FileText,
   Brain,
-  Target,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Star,
+  Users
 } from 'lucide-react'
 
 interface Assessment {
-  id: string
+  id: number
   name: string
   abbreviation: string
   category: string
-  description: string
-  questions: any[]
+  description: string | null
+  questions: any
   scoring_method: any
   interpretation_guide: any
 }
@@ -34,80 +35,74 @@ interface AssignedAssessment {
   client_id: string
   title: string
   status: string
-  due_date: string
-  assigned_at: string
-  completed_at?: string
+  due_date: string | null
+  assigned_at: string | null
+  completed_at: string | null
   client: {
     first_name: string
     last_name: string
     email: string
   }
-  responses?: any
-  score?: number
+}
+
+interface Client {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
 }
 
 export const AssessmentTools: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'library' | 'assigned' | 'create' | 'reports'>('library')
+  const [activeTab, setActiveTab] = useState<'library' | 'assigned' | 'reports'>('library')
   const [assessmentLibrary, setAssessmentLibrary] = useState<Assessment[]>([])
   const [assignedAssessments, setAssignedAssessments] = useState<AssignedAssessment[]>([])
-  const [clients, setClients] = useState<any[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedAssessment, setSelectedAssessment] = useState<Assessment | null>(null)
   const [showAssignModal, setShowAssignModal] = useState(false)
-  const [showCreateForm, setShowCreateForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { profile } = useAuth()
 
   useEffect(() => {
-    fetchData()
-  }, [profile])
+    if (profile?.id) {
+      fetchData()
+    }
+  }, [profile?.id])
 
   const fetchData = async () => {
-    if (!profile) return
+    if (!profile?.id) return
+
+    setLoading(true)
+    setError(null)
 
     try {
-      await Promise.all([
-        fetchAssessmentLibrary(),
-        fetchAssignedAssessments(),
-        fetchClients()
-      ])
-    } catch (error) {
-      console.error('Error fetching data:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchAssessmentLibrary = async () => {
-    try {
-      const { data, error } = await supabase
+      // Fetch assessment library
+      const { data: assessments, error: assessmentError } = await supabase
         .from('assessment_library')
         .select('*')
         .order('category', { ascending: true })
 
-      if (error) {
-        console.error('Error fetching assessment library:', error)
+      if (assessmentError) {
+        console.error('Error fetching assessments:', assessmentError)
         setAssessmentLibrary([])
-        return
+      } else {
+        setAssessmentLibrary(assessments || [])
       }
-      
-      setAssessmentLibrary(data || [])
-    } catch (error) {
-      console.error('Error in fetchAssessmentLibrary:', error)
-      setAssessmentLibrary([])
-    }
-  }
 
-  const fetchAssignedAssessments = async () => {
-    if (!profile) return
-
-    try {
-      const { data, error } = await supabase
+      // Fetch assigned assessments
+      const { data: assigned, error: assignedError } = await supabase
         .from('form_assignments')
         .select(`
-          *,
+          id,
+          client_id,
+          title,
+          status,
+          due_date,
+          assigned_at,
+          completed_at,
           profiles!form_assignments_client_id_fkey (
             first_name,
             last_name,
@@ -118,29 +113,19 @@ export const AssessmentTools: React.FC = () => {
         .eq('form_type', 'psychometric')
         .order('assigned_at', { ascending: false })
 
-      if (error) {
-        console.error('Error fetching assigned assessments:', error)
+      if (assignedError) {
+        console.error('Error fetching assigned assessments:', assignedError)
         setAssignedAssessments([])
-        return
+      } else {
+        const assignmentsWithClient = (assigned || []).map(assignment => ({
+          ...assignment,
+          client: assignment.profiles
+        }))
+        setAssignedAssessments(assignmentsWithClient)
       }
 
-      const assignmentsWithClient = data?.map(assignment => ({
-        ...assignment,
-        client: assignment.profiles
-      })) || []
-
-      setAssignedAssessments(assignmentsWithClient)
-    } catch (error) {
-      console.error('Error in fetchAssignedAssessments:', error)
-      setAssignedAssessments([])
-    }
-  }
-
-  const fetchClients = async () => {
-    if (!profile?.id) return
-
-    try {
-      const { data, error } = await supabase
+      // Fetch clients
+      const { data: clientRelations, error: clientError } = await supabase
         .from('therapist_client_relations')
         .select(`
           client_id,
@@ -153,17 +138,21 @@ export const AssessmentTools: React.FC = () => {
         `)
         .eq('therapist_id', profile.id)
 
-      if (error) {
-        console.error('Error fetching clients:', error)
+      if (clientError) {
+        console.error('Error fetching clients:', clientError)
         setClients([])
-        return
+      } else {
+        const clientList = (clientRelations || [])
+          .map(relation => relation.profiles)
+          .filter(Boolean)
+        setClients(clientList)
       }
 
-      const clientList = data?.map(relation => relation.profiles).filter(Boolean) || []
-      setClients(clientList)
     } catch (error) {
-      console.error('Error in fetchClients:', error)
-      setClients([])
+      console.error('Error fetching data:', error)
+      setError('Failed to load assessment data')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -189,31 +178,12 @@ export const AssessmentTools: React.FC = () => {
 
       if (error) throw error
 
-      await fetchAssignedAssessments()
+      await fetchData()
       setShowAssignModal(false)
       setSelectedAssessment(null)
     } catch (error) {
       console.error('Error assigning assessment:', error)
-    }
-  }
-
-  const createCustomAssessment = async (formData: any) => {
-    try {
-      const { error } = await supabase
-        .from('custom_forms')
-        .insert({
-          therapist_id: profile!.id,
-          title: formData.title,
-          description: formData.description,
-          questions: formData.questions
-        })
-
-      if (error) throw error
-
-      setShowCreateForm(false)
-      // Refresh data if needed
-    } catch (error) {
-      console.error('Error creating custom assessment:', error)
+      alert('Error assigning assessment')
     }
   }
 
@@ -237,7 +207,8 @@ export const AssessmentTools: React.FC = () => {
     }
   }
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -247,7 +218,7 @@ export const AssessmentTools: React.FC = () => {
 
   const filteredAssessments = assessmentLibrary.filter(assessment => {
     const matchesSearch = assessment.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         assessment.description.toLowerCase().includes(searchTerm.toLowerCase())
+                         (assessment.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = categoryFilter === 'all' || assessment.category.toLowerCase() === categoryFilter.toLowerCase()
     return matchesSearch && matchesCategory
   })
@@ -267,11 +238,22 @@ export const AssessmentTools: React.FC = () => {
     )
   }
 
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="flex items-center space-x-2">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <span className="text-red-800">{error}</span>
+        </div>
+      </div>
+    )
+  }
+
   const renderLibrary = () => (
     <div className="space-y-6">
       {/* Search and Filters */}
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -280,7 +262,7 @@ export const AssessmentTools: React.FC = () => {
                 placeholder="Search assessments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
@@ -289,25 +271,25 @@ export const AssessmentTools: React.FC = () => {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Categories</option>
-              <option value="depression">Depression</option>
-              <option value="anxiety">Anxiety</option>
-              <option value="trauma">Trauma</option>
-              <option value="general">General</option>
+              <option value="Depression">Depression</option>
+              <option value="Anxiety">Anxiety</option>
+              <option value="Trauma">Trauma</option>
+              <option value="General">General</option>
             </select>
           </div>
         </div>
       </div>
 
       {/* Assessment Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAssessments.map((assessment) => (
-          <div key={assessment.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow">
+          <div key={assessment.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-sm sm:text-lg font-semibold text-gray-900 line-clamp-2">{assessment.name}</h3>
+                <h3 className="font-semibold text-gray-900 line-clamp-2">{assessment.name}</h3>
                 <p className="text-sm text-blue-600 font-medium">{assessment.abbreviation}</p>
               </div>
               <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
@@ -315,31 +297,41 @@ export const AssessmentTools: React.FC = () => {
               </span>
             </div>
             
-            <p className="text-gray-600 text-xs sm:text-sm mb-4 line-clamp-3">{assessment.description}</p>
+            <p className="text-gray-600 text-sm mb-4 line-clamp-3">{assessment.description}</p>
             
             <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-              <span>{assessment.questions.length} questions</span>
-              <span>Max score: {assessment.scoring_method.max_score}</span>
+              <span>{assessment.questions?.length || 0} questions</span>
+              <span>Max: {assessment.scoring_method?.max_score || 'N/A'}</span>
             </div>
             
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+            <div className="flex space-x-2">
               <button
                 onClick={() => {
                   setSelectedAssessment(assessment)
                   setShowAssignModal(true)
                 }}
-                className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
-                <Send className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                <Send className="w-4 h-4 mr-1" />
                 Assign
               </button>
-              <button className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+              <button className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <Eye className="w-4 h-4" />
               </button>
             </div>
           </div>
         ))}
       </div>
+
+      {filteredAssessments.length === 0 && (
+        <div className="text-center py-12">
+          <ClipboardList className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No assessments found</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Try adjusting your search or filters.
+          </p>
+        </div>
+      )}
     </div>
   )
 
@@ -377,117 +369,54 @@ export const AssessmentTools: React.FC = () => {
         </div>
       </div>
 
-      {/* Assigned Assessments Table */}
+      {/* Assigned Assessments List */}
       <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-        <div className="overflow-hidden">
-          {filteredAssigned.length === 0 ? (
-            <div className="text-center py-12">
-              <ClipboardList className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No assigned assessments</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Start by assigning assessments from the library.
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Assessment
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Client
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Due Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Score
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredAssigned.map((assignment) => (
-                    <tr key={assignment.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{assignment.title}</div>
-                        <div className="text-sm text-gray-500">Assigned {formatDate(assignment.assigned_at)}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {assignment.client.first_name} {assignment.client.last_name}
+        {filteredAssigned.length === 0 ? (
+          <div className="text-center py-12">
+            <ClipboardList className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No assigned assessments</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Start by assigning assessments from the library.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {filteredAssigned.map((assignment) => (
+              <div key={assignment.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-shrink-0">
+                      <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(assignment.status)}`}>
+                        <div className="flex items-center space-x-1">
+                          {getStatusIcon(assignment.status)}
+                          <span className="capitalize">{assignment.status.replace('_', ' ')}</span>
                         </div>
-                        <div className="text-sm text-gray-500">{assignment.client.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(assignment.status)}`}>
-                          <div className="flex items-center space-x-1">
-                            {getStatusIcon(assignment.status)}
-                            <span className="capitalize">{assignment.status.replace('_', ' ')}</span>
-                          </div>
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(assignment.due_date)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {assignment.score !== undefined ? assignment.score : '-'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button className="text-blue-600 hover:text-blue-900">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button className="text-green-600 hover:text-green-900">
-                            <BarChart3 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-
-  const renderCreateForm = () => (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-      <div className="flex items-center space-x-3 mb-6">
-        <Brain className="w-6 h-6 text-purple-600" />
-        <h3 className="text-lg font-semibold text-gray-900">Create Custom Assessment</h3>
-      </div>
-      
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center space-x-2">
-          <Brain className="w-5 h-5 text-purple-600" />
-          <span className="font-medium text-purple-900">AI-Assisted Form Builder</span>
-        </div>
-        <p className="text-purple-700 text-sm mt-2">
-          Our AI can help you create evidence-based assessments tailored to your practice needs.
-        </p>
-        <button className="mt-3 inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200">
-          <Brain className="w-4 h-4 mr-1" />
-          Generate with AI
-        </button>
-      </div>
-
-      <div className="text-center py-12 text-gray-500">
-        <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">Custom Form Builder</h3>
-        <p className="text-gray-600">
-          Advanced form builder with drag-and-drop interface coming soon.
-        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900">{assignment.title}</h4>
+                      <p className="text-sm text-gray-500">
+                        {assignment.client.first_name} {assignment.client.last_name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Assigned: {formatDate(assignment.assigned_at)} • Due: {formatDate(assignment.due_date)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex space-x-2">
+                    <button className="text-blue-600 hover:text-blue-900">
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button className="text-green-600 hover:text-green-900">
+                      <BarChart3 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -502,29 +431,34 @@ export const AssessmentTools: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-blue-50 p-4 rounded-lg">
           <div className="flex items-center space-x-2 mb-2">
-            <Target className="w-5 h-5 text-blue-600" />
+            <CheckCircle className="w-5 h-5 text-blue-600" />
             <span className="font-medium text-blue-900">Completion Rate</span>
           </div>
-          <div className="text-2xl font-bold text-blue-600">87%</div>
-          <div className="text-sm text-blue-700">This month</div>
+          <div className="text-2xl font-bold text-blue-600">
+            {assignedAssessments.length > 0 
+              ? Math.round((assignedAssessments.filter(a => a.status === 'completed').length / assignedAssessments.length) * 100)
+              : 0
+            }%
+          </div>
+          <div className="text-sm text-blue-700">Overall</div>
         </div>
         
         <div className="bg-green-50 p-4 rounded-lg">
           <div className="flex items-center space-x-2 mb-2">
-            <CheckCircle className="w-5 h-5 text-green-600" />
-            <span className="font-medium text-green-900">Avg Response Time</span>
+            <Users className="w-5 h-5 text-green-600" />
+            <span className="font-medium text-green-900">Active Clients</span>
           </div>
-          <div className="text-2xl font-bold text-green-600">2.3 days</div>
-          <div className="text-sm text-green-700">Per assessment</div>
+          <div className="text-2xl font-bold text-green-600">{clients.length}</div>
+          <div className="text-sm text-green-700">In roster</div>
         </div>
         
         <div className="bg-purple-50 p-4 rounded-lg">
           <div className="flex items-center space-x-2 mb-2">
             <Brain className="w-5 h-5 text-purple-600" />
-            <span className="font-medium text-purple-900">AI Insights</span>
+            <span className="font-medium text-purple-900">Assessments</span>
           </div>
-          <div className="text-2xl font-bold text-purple-600">12</div>
-          <div className="text-sm text-purple-700">Generated reports</div>
+          <div className="text-2xl font-bold text-purple-600">{assessmentLibrary.length}</div>
+          <div className="text-sm text-purple-700">Available tools</div>
         </div>
       </div>
 
@@ -546,13 +480,6 @@ export const AssessmentTools: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-900">Assessment & Screening Tools</h2>
           <p className="text-gray-600">Manage psychometric assessments and screening tools</p>
         </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700"
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Custom
-        </button>
       </div>
 
       {/* Tabs */}
@@ -561,7 +488,6 @@ export const AssessmentTools: React.FC = () => {
           {[
             { id: 'library', name: 'Assessment Library', icon: ClipboardList },
             { id: 'assigned', name: 'Assigned Assessments', icon: Send },
-            { id: 'create', name: 'Create Custom', icon: Plus },
             { id: 'reports', name: 'Reports & Analytics', icon: BarChart3 }
           ].map((tab) => {
             const Icon = tab.icon
@@ -586,7 +512,6 @@ export const AssessmentTools: React.FC = () => {
       {/* Tab Content */}
       {activeTab === 'library' && renderLibrary()}
       {activeTab === 'assigned' && renderAssigned()}
-      {activeTab === 'create' && renderCreateForm()}
       {activeTab === 'reports' && renderReports()}
 
       {/* Assign Assessment Modal */}
@@ -608,7 +533,7 @@ export const AssessmentTools: React.FC = () => {
 // Assign Assessment Modal Component
 interface AssignAssessmentModalProps {
   assessment: Assessment
-  clients: any[]
+  clients: Client[]
   onClose: () => void
   onAssign: (assessmentId: string, clientIds: string[], dueDate: string, instructions: string) => void
 }
@@ -626,7 +551,7 @@ const AssignAssessmentModal: React.FC<AssignAssessmentModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (selectedClients.length > 0 && dueDate) {
-      onAssign(assessment.id, selectedClients, dueDate, instructions)
+      onAssign(assessment.id.toString(), selectedClients, dueDate, instructions)
     }
   }
 
@@ -640,21 +565,17 @@ const AssignAssessmentModal: React.FC<AssignAssessmentModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
           <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="bg-white px-6 pt-6 pb-4">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">
-                  Assign Assessment: {assessment.name}
+                <h3 className="text-lg font-medium text-gray-900">
+                  Assign: {assessment.name}
                 </h3>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-gray-600"
-                >
+                <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
                   <span className="sr-only">Close</span>
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -664,9 +585,7 @@ const AssignAssessmentModal: React.FC<AssignAssessmentModalProps> = ({
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Select Clients
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Select Clients</label>
                   <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md">
                     {clients.map((client) => (
                       <label key={client.id} className="flex items-center p-3 hover:bg-gray-50 cursor-pointer">
@@ -688,12 +607,9 @@ const AssignAssessmentModal: React.FC<AssignAssessmentModalProps> = ({
                 </div>
 
                 <div>
-                  <label htmlFor="dueDate" className="block text-sm font-medium text-gray-700 mb-2">
-                    Due Date
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
                   <input
                     type="date"
-                    id="dueDate"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     min={new Date().toISOString().split('T')[0]}
@@ -703,33 +619,30 @@ const AssignAssessmentModal: React.FC<AssignAssessmentModalProps> = ({
                 </div>
 
                 <div>
-                  <label htmlFor="instructions" className="block text-sm font-medium text-gray-700 mb-2">
-                    Instructions for Client
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Instructions</label>
                   <textarea
-                    id="instructions"
                     value={instructions}
                     onChange={(e) => setInstructions(e.target.value)}
                     rows={3}
-                    placeholder="Optional instructions or context for the client..."
+                    placeholder="Optional instructions for the client..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
             </div>
             
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
                 disabled={selectedClients.length === 0 || !dueDate}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
                 Assign Assessment
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Cancel
               </button>

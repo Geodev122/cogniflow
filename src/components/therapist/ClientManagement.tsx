@@ -7,14 +7,10 @@ import {
   Search, 
   Filter, 
   Edit, 
-  Trash2, 
   Phone, 
   Mail, 
-  AlertTriangle,
   User,
-  Calendar,
-  FileText,
-  TrendingUp
+  AlertTriangle
 } from 'lucide-react'
 
 interface Client {
@@ -23,52 +19,43 @@ interface Client {
   last_name: string
   email: string
   created_at: string
-  profile?: {
-    emergency_contact_name?: string
-    emergency_contact_phone?: string
-    emergency_contact_relationship?: string
-    medical_history?: string
-    current_medications?: string
-    presenting_concerns?: string
-    therapy_history?: string
-    risk_level?: string
-    notes?: string
-  }
-  stats?: {
-    totalAssessments: number
-    completedAssessments: number
-    lastSession?: string
-    nextAppointment?: string
-  }
+  whatsapp_number?: string | null
+  patient_code?: string | null
+}
+
+interface ClientProfile {
+  risk_level?: string
+  presenting_concerns?: string
+  notes?: string
 }
 
 export const ClientManagement: React.FC = () => {
   const [clients, setClients] = useState<Client[]>([])
-  const [filteredClients, setFilteredClients] = useState<Client[]>([])
+  const [clientProfiles, setClientProfiles] = useState<Record<string, ClientProfile>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [riskFilter, setRiskFilter] = useState<string>('all')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [showAddClient, setShowAddClient] = useState(false)
   const [showClientDetails, setShowClientDetails] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { profile } = useAuth()
 
   useEffect(() => {
-    if (profile) {
+    if (profile?.id) {
       fetchClients()
     }
-  }, [profile])
-
-  useEffect(() => {
-    filterClients()
-  }, [clients, searchTerm, riskFilter])
+  }, [profile?.id])
 
   const fetchClients = async () => {
-    if (!profile) return
+    if (!profile?.id) return
+
+    setLoading(true)
+    setError(null)
 
     try {
-      // Simplified client fetching
-      const { data: relations, error } = await supabase
+      // Fetch client relations
+      const { data: relations, error: relationsError } = await supabase
         .from('therapist_client_relations')
         .select(`
           client_id,
@@ -77,56 +64,64 @@ export const ClientManagement: React.FC = () => {
             first_name,
             last_name,
             email,
-            created_at
+            created_at,
+            whatsapp_number,
+            patient_code
           )
         `)
         .eq('therapist_id', profile.id)
 
-      if (error) {
-        console.error('Error fetching client relations:', error)
+      if (relationsError) {
+        console.error('Error fetching client relations:', relationsError)
+        setError('Failed to load clients')
         setClients([])
         return
       }
 
-      // Basic client list without complex stats for now
-      const clientsWithProfiles = (relations || []).map((relation: any) => ({
-        ...relation.profiles,
-        profile: null,
-        stats: {
-          totalAssessments: 0,
-          completedAssessments: 0,
-          lastSession: undefined,
-          nextAppointment: undefined
-        }
-      }))
+      const clientList = (relations || [])
+        .map((relation: any) => relation.profiles)
+        .filter(Boolean)
 
-      setClients(clientsWithProfiles)
+      setClients(clientList)
+
+      // Fetch client profiles separately
+      if (clientList.length > 0) {
+        const clientIds = clientList.map(c => c.id)
+        const { data: profiles, error: profilesError } = await supabase
+          .from('client_profiles')
+          .select('client_id, risk_level, presenting_concerns, notes')
+          .in('client_id', clientIds)
+          .eq('therapist_id', profile.id)
+
+        if (!profilesError && profiles) {
+          const profilesMap = profiles.reduce((acc, p) => {
+            acc[p.client_id] = {
+              risk_level: p.risk_level,
+              presenting_concerns: p.presenting_concerns,
+              notes: p.notes
+            }
+            return acc
+          }, {} as Record<string, ClientProfile>)
+          setClientProfiles(profilesMap)
+        }
+      }
+
     } catch (error) {
       console.error('Error fetching clients:', error)
+      setError('Failed to load clients')
       setClients([])
     } finally {
       setLoading(false)
     }
   }
 
-  const filterClients = () => {
-    let filtered = clients
-
-    // Search filter
-    if (searchTerm) {
-      filtered = filtered.filter(client =>
-        `${client.first_name} ${client.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.email.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    // Risk level filter
-    if (riskFilter !== 'all') {
-      filtered = filtered.filter(client => client.profile?.risk_level === riskFilter)
-    }
-
-    setFilteredClients(filtered)
-  }
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = `${client.first_name} ${client.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         client.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const clientProfile = clientProfiles[client.id]
+    const matchesRisk = riskFilter === 'all' || clientProfile?.risk_level === riskFilter
+    return matchesSearch && matchesRisk
+  })
 
   const getRiskColor = (riskLevel?: string) => {
     switch (riskLevel) {
@@ -138,8 +133,7 @@ export const ClientManagement: React.FC = () => {
     }
   }
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A'
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -149,9 +143,6 @@ export const ClientManagement: React.FC = () => {
 
   const addClientToRoster = async (clientData: { firstName: string; lastName: string; email: string; whatsappNumber: string }) => {
     try {
-      // Generate patient code
-      const patientCode = `PT${Math.floor(Math.random() * 900000) + 100000}`
-      
       // Check if user already exists
       const { data: existingUser } = await supabase
         .from('profiles')
@@ -159,38 +150,33 @@ export const ClientManagement: React.FC = () => {
         .eq('email', clientData.email)
         .maybeSingle()
       
-      let clientId: string
-      
       if (existingUser) {
-        clientId = existingUser.id
-        
         // Check if relationship already exists
         const { data: existingRelation } = await supabase
           .from('therapist_client_relations')
           .select('id')
           .eq('therapist_id', profile!.id)
-          .eq('client_id', clientId)
+          .eq('client_id', existingUser.id)
           .maybeSingle()
         
         if (existingRelation) {
           alert('This client is already in your roster.')
           return
         }
+
+        // Create therapist-client relation
+        const { error: relationError } = await supabase
+          .from('therapist_client_relations')
+          .insert({
+            therapist_id: profile!.id,
+            client_id: existingUser.id
+          })
+
+        if (relationError) throw relationError
       } else {
-        // For now, just show a message that the client needs to register first
         alert('Client must register first. Please ask them to create an account with this email: ' + clientData.email)
         return
       }
-
-      // Create therapist-client relation
-      const { error: relationError } = await supabase
-        .from('therapist_client_relations')
-        .insert({
-          therapist_id: profile!.id,
-          client_id: clientId
-        })
-
-      if (relationError) throw relationError
 
       await fetchClients()
       setShowAddClient(false)
@@ -217,6 +203,7 @@ export const ClientManagement: React.FC = () => {
       setShowClientDetails(false)
     } catch (error) {
       console.error('Error updating client profile:', error)
+      alert('Error updating client profile')
     }
   }
 
@@ -224,6 +211,17 @@ export const ClientManagement: React.FC = () => {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="flex items-center space-x-2">
+          <AlertTriangle className="w-5 h-5 text-red-600" />
+          <span className="text-red-800">{error}</span>
+        </div>
       </div>
     )
   }
@@ -277,106 +275,83 @@ export const ClientManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* Client List */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-        <div className="overflow-hidden">
-          {filteredClients.length === 0 ? (
-            <div className="text-center py-12">
-              <Users className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No clients found</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                {searchTerm || riskFilter !== 'all' 
-                  ? 'Try adjusting your search or filters.'
-                  : 'Add clients to your roster to get started.'
-                }
-              </p>
+      {/* Client Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {filteredClients.map((client) => {
+          const clientProfile = clientProfiles[client.id]
+          return (
+            <div key={client.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-sm font-medium text-blue-600">
+                      {client.first_name[0]}{client.last_name[0]}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">
+                      {client.first_name} {client.last_name}
+                    </h3>
+                    <p className="text-sm text-gray-600">{client.email}</p>
+                    {client.patient_code && (
+                      <p className="text-xs text-gray-500">Code: {client.patient_code}</p>
+                    )}
+                  </div>
+                </div>
+                <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getRiskColor(clientProfile?.risk_level)}`}>
+                  {clientProfile?.risk_level || 'low'}
+                </div>
+              </div>
+
+              <div className="space-y-2 text-sm text-gray-600 mb-4">
+                <div>
+                  <span className="font-medium">Joined:</span> {formatDate(client.created_at)}
+                </div>
+                {clientProfile?.presenting_concerns && (
+                  <div>
+                    <span className="font-medium">Concerns:</span> 
+                    <p className="text-xs mt-1 line-clamp-2">{clientProfile.presenting_concerns}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => {
+                    setSelectedClient(client)
+                    setShowClientDetails(true)
+                  }}
+                  className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  Edit
+                </button>
+                {client.whatsapp_number && (
+                  <button className="inline-flex items-center justify-center px-3 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100">
+                    <Phone className="w-4 h-4" />
+                  </button>
+                )}
+                <button className="inline-flex items-center justify-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100">
+                  <Mail className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Client
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Risk Level
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Assessments
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Last Session
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Next Appointment
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredClients.map((client) => (
-                    <tr key={client.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <span className="text-sm font-medium text-blue-600">
-                                {client.first_name[0]}{client.last_name[0]}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
-                              {client.first_name} {client.last_name}
-                            </div>
-                            <div className="text-sm text-gray-500">{client.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getRiskColor(client.profile?.risk_level)}`}>
-                          {client.profile?.risk_level || 'low'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {client.stats?.completedAssessments}/{client.stats?.totalAssessments}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(client.stats?.lastSession)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(client.stats?.nextAppointment)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => {
-                              setSelectedClient(client)
-                              setShowClientDetails(true)
-                            }}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button className="text-green-600 hover:text-green-900">
-                            <Phone className="w-4 h-4" />
-                          </button>
-                          <button className="text-purple-600 hover:text-purple-900">
-                            <Mail className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+          )
+        })}
       </div>
+
+      {filteredClients.length === 0 && (
+        <div className="text-center py-12">
+          <Users className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No clients found</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {searchTerm || riskFilter !== 'all' 
+              ? 'Try adjusting your search or filters.'
+              : 'Add clients to your roster to get started.'
+            }
+          </p>
+        </div>
+      )}
 
       {/* Add Client Modal */}
       {showAddClient && (
@@ -390,6 +365,7 @@ export const ClientManagement: React.FC = () => {
       {showClientDetails && selectedClient && (
         <ClientDetailsModal
           client={selectedClient}
+          profile={clientProfiles[selectedClient.id]}
           onClose={() => setShowClientDetails(false)}
           onUpdate={updateClientProfile}
         />
@@ -411,17 +387,6 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onAdd }) => {
     email: '',
     whatsappNumber: ''
   })
-  const [patientCode, setPatientCode] = useState('')
-
-  // Generate patient code when modal opens
-  React.useEffect(() => {
-    const generatePatientCode = () => {
-      const prefix = 'PT'
-      const randomNum = Math.floor(Math.random() * 900000) + 100000
-      return `${prefix}${randomNum}`
-    }
-    setPatientCode(generatePatientCode())
-  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -436,110 +401,90 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onAdd }) => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
           <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <div className="sm:flex sm:items-start">
-                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
-                  <Plus className="h-6 w-6 text-blue-600" />
-                </div>
-                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
-                  <h3 className="text-lg leading-6 font-medium text-gray-900">
-                    Create New Client Account
-                  </h3>
-                  
-                  <div className="mt-4 space-y-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-sm font-medium text-blue-900">Patient Code:</span>
-                        <span className="text-sm font-mono text-blue-700 bg-white px-2 py-1 rounded">{patientCode}</span>
-                      </div>
-                      <p className="text-xs text-blue-700 mt-1">Auto-generated unique identifier for this client</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                          First Name *
-                        </label>
-                        <input
-                          type="text"
-                          id="firstName"
-                          value={formData.firstName}
-                          onChange={(e) => handleChange('firstName', e.target.value)}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                          Last Name *
-                        </label>
-                        <input
-                          type="text"
-                          id="lastName"
-                          value={formData.lastName}
-                          onChange={(e) => handleChange('lastName', e.target.value)}
-                          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                        Email Address *
-                      </label>
-                      <input
-                        type="email"
-                        id="email"
-                        value={formData.email}
-                        onChange={(e) => handleChange('email', e.target.value)}
-                        placeholder="client@example.com"
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label htmlFor="whatsappNumber" className="block text-sm font-medium text-gray-700">
-                        WhatsApp Number *
-                      </label>
-                      <input
-                        type="tel"
-                        id="whatsappNumber"
-                        value={formData.whatsappNumber}
-                        onChange={(e) => handleChange('whatsappNumber', e.target.value)}
-                        placeholder="+1 (555) 123-4567"
-                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                        required
-                      />
-                    </div>
-
-                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                      <p className="text-sm text-amber-800">
-                        <strong>Note:</strong> The client will receive an email with their patient code and instructions to set up their password.
-                      </p>
-                    </div>
+            <div className="bg-white px-6 pt-6 pb-4">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-medium text-gray-900">Add Client to Roster</h3>
+                <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                  <span className="sr-only">Close</span>
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+                    <input
+                      type="text"
+                      value={formData.firstName}
+                      onChange={(e) => handleChange('firstName', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+                    <input
+                      type="text"
+                      value={formData.lastName}
+                      onChange={(e) => handleChange('lastName', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleChange('email', e.target.value)}
+                    placeholder="client@example.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp Number *</label>
+                  <input
+                    type="tel"
+                    value={formData.whatsappNumber}
+                    onChange={(e) => handleChange('whatsappNumber', e.target.value)}
+                    placeholder="+1 (555) 123-4567"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-sm text-amber-800">
+                    <strong>Note:</strong> The client must already have an account. If they don't, ask them to register first.
+                  </p>
                 </div>
               </div>
             </div>
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            
+            <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
                 disabled={!formData.firstName || !formData.lastName || !formData.email || !formData.whatsappNumber}
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
               >
-                Create Client Account
+                Add to Roster
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Cancel
               </button>
@@ -554,21 +499,17 @@ const AddClientModal: React.FC<AddClientModalProps> = ({ onClose, onAdd }) => {
 // Client Details Modal Component
 interface ClientDetailsModalProps {
   client: Client
+  profile?: ClientProfile
   onClose: () => void
   onUpdate: (clientId: string, updates: any) => void
 }
 
-const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({ client, onClose, onUpdate }) => {
+const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({ client, profile: clientProfile, onClose, onUpdate }) => {
   const [formData, setFormData] = useState({
-    emergency_contact_name: client.profile?.emergency_contact_name || '',
-    emergency_contact_phone: client.profile?.emergency_contact_phone || '',
-    emergency_contact_relationship: client.profile?.emergency_contact_relationship || '',
-    medical_history: client.profile?.medical_history || '',
-    current_medications: client.profile?.current_medications || '',
-    presenting_concerns: client.profile?.presenting_concerns || '',
-    therapy_history: client.profile?.therapy_history || '',
-    risk_level: client.profile?.risk_level || 'low',
-    notes: client.profile?.notes || ''
+    emergency_contact_name: clientProfile?.notes || '',
+    risk_level: clientProfile?.risk_level || 'low',
+    presenting_concerns: clientProfile?.presenting_concerns || '',
+    notes: clientProfile?.notes || ''
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -582,21 +523,17 @@ const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({ client, onClose
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose} />
         
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
           <form onSubmit={handleSubmit}>
-            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+            <div className="bg-white px-6 pt-6 pb-4">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">
+                <h3 className="text-lg font-medium text-gray-900">
                   Client Profile: {client.first_name} {client.last_name}
                 </h3>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-gray-600"
-                >
+                <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
                   <span className="sr-only">Close</span>
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -604,47 +541,9 @@ const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({ client, onClose
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-96 overflow-y-auto">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Emergency Contact Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.emergency_contact_name}
-                    onChange={(e) => handleChange('emergency_contact_name', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Emergency Contact Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.emergency_contact_phone}
-                    onChange={(e) => handleChange('emergency_contact_phone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Relationship
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.emergency_contact_relationship}
-                    onChange={(e) => handleChange('emergency_contact_relationship', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Risk Level
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Risk Level</label>
                   <select
                     value={formData.risk_level}
                     onChange={(e) => handleChange('risk_level', e.target.value)}
@@ -657,79 +556,41 @@ const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({ client, onClose
                   </select>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Presenting Concerns
-                  </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Presenting Concerns</label>
                   <textarea
                     value={formData.presenting_concerns}
                     onChange={(e) => handleChange('presenting_concerns', e.target.value)}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="What brings the client to therapy?"
                   />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Medical History
-                  </label>
-                  <textarea
-                    value={formData.medical_history}
-                    onChange={(e) => handleChange('medical_history', e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Current Medications
-                  </label>
-                  <textarea
-                    value={formData.current_medications}
-                    onChange={(e) => handleChange('current_medications', e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Therapy History
-                  </label>
-                  <textarea
-                    value={formData.therapy_history}
-                    onChange={(e) => handleChange('therapy_history', e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Clinical Notes
-                  </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Clinical Notes</label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => handleChange('notes', e.target.value)}
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Clinical observations and notes..."
                   />
                 </div>
               </div>
             </div>
             
-            <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <div className="bg-gray-50 px-6 py-4 sm:flex sm:flex-row-reverse">
               <button
                 type="submit"
-                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
+                className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Update Profile
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Cancel
               </button>

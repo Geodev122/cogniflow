@@ -31,11 +31,12 @@ export type Database = {
           email: string
           patient_code: string | null
           whatsapp_number: string | null
-          password_set: boolean
+          password_set: boolean | null
           created_by_therapist: string | null
           professional_details: any | null
           verification_status: string | null
-          created_at: string
+          created_at: string | null
+          updated_at: string | null
         }
         Insert: {
           id: string
@@ -45,11 +46,12 @@ export type Database = {
           email: string
           patient_code?: string | null
           whatsapp_number?: string | null
-          password_set?: boolean
+          password_set?: boolean | null
           created_by_therapist?: string | null
           professional_details?: any | null
           verification_status?: string | null
-          created_at?: string
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
           id?: string
@@ -59,11 +61,12 @@ export type Database = {
           email?: string
           patient_code?: string | null
           whatsapp_number?: string | null
-          password_set?: boolean
+          password_set?: boolean | null
           created_by_therapist?: string | null
           professional_details?: any | null
           verification_status?: string | null
-          created_at?: string
+          created_at?: string | null
+          updated_at?: string | null
         }
       }
       therapist_client_relations: {
@@ -71,203 +74,62 @@ export type Database = {
           id: string
           therapist_id: string
           client_id: string
-          created_at: string
+          created_at: string | null
         }
         Insert: {
           therapist_id: string
           client_id: string
-          created_at?: string
+          created_at?: string | null
         }
         Update: {
           therapist_id?: string
           client_id?: string
-          created_at?: string
+          created_at?: string | null
         }
       }
-      cbt_worksheets: {
+      form_assignments: {
         Row: {
           id: string
-          therapist_id: string
-          client_id: string
-          type: string
-          title: string
-          content: any
-          status: 'assigned' | 'in_progress' | 'completed'
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          therapist_id: string
-          client_id: string
-          type: string
-          title: string
-          content?: any
-          status?: 'assigned' | 'in_progress' | 'completed'
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          therapist_id?: string
-          client_id?: string
-          type?: string
-          title?: string
-          content?: any
-          status?: 'assigned' | 'in_progress' | 'completed'
-          created_at?: string
-          updated_at?: string
-        }
-      }
-      psychometric_forms: {
-        Row: {
-          id: string
-          therapist_id: string
-          client_id: string
+          therapist_id: string | null
+          client_id: string | null
           form_type: string
+          form_id: string | null
           title: string
-          questions: any
-          responses: any
-          score: number
-          status: 'assigned' | 'completed'
-          created_at: string
+          instructions: string | null
+          due_date: string | null
+          reminder_frequency: string | null
+          status: string | null
+          assigned_at: string | null
           completed_at: string | null
+          created_at: string | null
         }
         Insert: {
-          therapist_id: string
-          client_id: string
+          therapist_id?: string | null
+          client_id?: string | null
           form_type: string
+          form_id?: string | null
           title: string
-          questions?: any
-          responses?: any
-          score?: number
-          status?: 'assigned' | 'completed'
-          created_at?: string
+          instructions?: string | null
+          due_date?: string | null
+          reminder_frequency?: string | null
+          status?: string | null
+          assigned_at?: string | null
           completed_at?: string | null
+          created_at?: string | null
         }
         Update: {
-          therapist_id?: string
-          client_id?: string
+          therapist_id?: string | null
+          client_id?: string | null
           form_type?: string
+          form_id?: string | null
           title?: string
-          questions?: any
-          responses?: any
-          score?: number
-          status?: 'assigned' | 'completed'
-          created_at?: string
+          instructions?: string | null
+          due_date?: string | null
+          reminder_frequency?: string | null
+          status?: string | null
+          assigned_at?: string | null
           completed_at?: string | null
-        }
-      }
-      therapeutic_exercises: {
-        Row: {
-          id: string
-          therapist_id: string
-          client_id: string
-          exercise_type: string
-          title: string
-          description: string | null
-          game_config: any
-          progress: any
-          status: 'assigned' | 'in_progress' | 'completed'
-          created_at: string
-          last_played_at: string | null
-        }
-        Insert: {
-          therapist_id: string
-          client_id: string
-          exercise_type: string
-          title: string
-          description?: string | null
-          game_config?: any
-          progress?: any
-          status?: 'assigned' | 'in_progress' | 'completed'
-          created_at?: string
-          last_played_at?: string | null
-        }
-        Update: {
-          therapist_id?: string
-          client_id?: string
-          exercise_type?: string
-          title?: string
-          description?: string | null
-          game_config?: any
-          progress?: any
-          status?: 'assigned' | 'in_progress' | 'completed'
-          created_at?: string
-          last_played_at?: string | null
-        }
-      }
-      worksheets: {
-        Row: {
-          id: string
-          therapist_id: string
-          title: string
-          content: any
-          created_at: string
-        }
-        Insert: {
-          therapist_id: string
-          title: string
-          content?: any
-          created_at?: string
-        }
-        Update: {
-          therapist_id?: string
-          title?: string
-          content?: any
-          created_at?: string
-        }
-      }
-      worksheet_assignments: {
-        Row: {
-          id: string
-          worksheet_id: string
-          client_id: string
-          status: 'assigned' | 'in_progress' | 'completed'
-          responses: any
-          assigned_at: string
-          completed_at: string | null
-        }
-        Insert: {
-          worksheet_id: string
-          client_id: string
-          status?: 'assigned' | 'in_progress' | 'completed'
-          responses?: any
-          assigned_at?: string
-          completed_at?: string | null
-        }
-        Update: {
-          worksheet_id?: string
-          client_id?: string
-          status?: 'assigned' | 'in_progress' | 'completed'
-          responses?: any
-          assigned_at?: string
-          completed_at?: string | null
-        }
-      }
-      progress_tracking: {
-        Row: {
-          id: string
-          client_id: string
-          metric_type: string
-          value: number
-          source_type: 'psychometric' | 'exercise' | 'manual'
-          source_id: string | null
-          recorded_at: string
-        }
-        Insert: {
-          client_id: string
-          metric_type: string
-          value: number
-          source_type: 'psychometric' | 'exercise' | 'manual'
-          source_id?: string | null
-          recorded_at?: string
-        }
-        Update: {
-          client_id?: string
-          metric_type?: string
-          value?: number
-          source_type?: 'psychometric' | 'exercise' | 'manual'
-          source_id?: string | null
-          recorded_at?: string
+          created_at?: string | null
         }
       }
       assessment_library: {
@@ -280,8 +142,8 @@ export type Database = {
           questions: any
           scoring_method: any
           interpretation_guide: any
-          created_at: string
-          updated_at: string
+          created_at: string | null
+          updated_at: string | null
         }
         Insert: {
           id?: number
@@ -292,8 +154,8 @@ export type Database = {
           questions: any
           scoring_method: any
           interpretation_guide: any
-          created_at?: string
-          updated_at?: string
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
           id?: number
@@ -304,59 +166,130 @@ export type Database = {
           questions?: any
           scoring_method?: any
           interpretation_guide?: any
-          created_at?: string
-          updated_at?: string
+          created_at?: string | null
+          updated_at?: string | null
         }
       }
-      session_notes: {
+      progress_tracking: {
         Row: {
           id: string
-          appointment_id: string | null
-          therapist_id: string | null
-          progress_notes: string | null
-          created_at: string
+          client_id: string
+          metric_type: string
+          value: number
+          source_type: 'psychometric' | 'exercise' | 'manual'
+          source_id: string | null
+          recorded_at: string | null
         }
         Insert: {
-          id?: string
-          appointment_id?: string | null
-          therapist_id?: string | null
-          progress_notes?: string | null
-          created_at?: string
+          client_id: string
+          metric_type: string
+          value: number
+          source_type: 'psychometric' | 'exercise' | 'manual'
+          source_id?: string | null
+          recorded_at?: string | null
         }
         Update: {
-          id?: string
-          appointment_id?: string | null
-          therapist_id?: string | null
-          progress_notes?: string | null
-          created_at?: string
+          client_id?: string
+          metric_type?: string
+          value?: number
+          source_type?: 'psychometric' | 'exercise' | 'manual'
+          source_id?: string | null
+          recorded_at?: string | null
         }
       }
-      document_uploads: {
+      client_profiles: {
         Row: {
           id: string
-          session_id: string | null
+          client_id: string | null
           therapist_id: string | null
-          file_url: string
-          description: string | null
-          created_at: string
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          emergency_contact_relationship: string | null
+          medical_history: string | null
+          current_medications: string | null
+          presenting_concerns: string | null
+          therapy_history: string | null
+          risk_level: string | null
+          notes: string | null
+          created_at: string | null
+          updated_at: string | null
         }
         Insert: {
-          id?: string
-          session_id?: string | null
+          client_id?: string | null
           therapist_id?: string | null
-          file_url: string
-          description?: string | null
-          created_at?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
+          medical_history?: string | null
+          current_medications?: string | null
+          presenting_concerns?: string | null
+          therapy_history?: string | null
+          risk_level?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
-          id?: string
-          session_id?: string | null
+          client_id?: string | null
           therapist_id?: string | null
-          file_url?: string
-          description?: string | null
-          created_at?: string
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          emergency_contact_relationship?: string | null
+          medical_history?: string | null
+          current_medications?: string | null
+          presenting_concerns?: string | null
+          therapy_history?: string | null
+          risk_level?: string | null
+          notes?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
       }
+    }
+    Views: {
+      progress_metrics: {
+        Row: {
+          client_id: string | null
+          metric_date: string | null
+          metric_type: string | null
+          value: number | null
+        }
+      }
+      app_usage_stats: {
+        Row: {
+          app_id: string | null
+          app_name: string | null
+          app_type: string | null
+          unique_users: number | null
+          total_sessions: number | null
+          average_score: number | null
+          average_duration_seconds: number | null
+          completed_sessions: number | null
+          completion_rate: number | null
+        }
+      }
+      therapist_insights_metrics: {
+        Row: {
+          therapist_id: string | null
+          overdue_assessments: number | null
+          idle_clients: number | null
+        }
+      }
+    }
+    Functions: {
+      get_client_data: {
+        Args: { client_id: string }
+        Returns: {
+          worksheets: any
+          assessments: any
+          exercises: any
+          progress: any
+        }[]
+      }
+    }
+  }
+  gamification: {
+    Tables: {
       gamified_apps: {
         Row: {
           id: string
@@ -365,12 +298,12 @@ export type Database = {
           category: string
           difficulty_level: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | null
           estimated_duration: number | null
-          is_active: boolean
-          created_at: string
-          updated_at: string
-          avg_completion_rate: number
-          total_plays: number
-          difficulty_weight: number
+          is_active: boolean | null
+          created_at: string | null
+          updated_at: string | null
+          avg_completion_rate: number | null
+          total_plays: number | null
+          difficulty_weight: number | null
         }
         Insert: {
           id?: string
@@ -379,12 +312,12 @@ export type Database = {
           category: string
           difficulty_level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | null
           estimated_duration?: number | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          avg_completion_rate?: number
-          total_plays?: number
-          difficulty_weight?: number
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+          avg_completion_rate?: number | null
+          total_plays?: number | null
+          difficulty_weight?: number | null
         }
         Update: {
           id?: string
@@ -393,50 +326,50 @@ export type Database = {
           category?: string
           difficulty_level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | null
           estimated_duration?: number | null
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-          avg_completion_rate?: number
-          total_plays?: number
-          difficulty_weight?: number
+          is_active?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+          avg_completion_rate?: number | null
+          total_plays?: number | null
+          difficulty_weight?: number | null
         }
       }
       user_app_progress: {
         Row: {
           user_id: string
           app_id: string
-          best_score: number
-          total_sessions: number
-          total_time_spent: number
+          best_score: number | null
+          total_sessions: number | null
+          total_time_spent: number | null
           last_played_at: string | null
-          experience_points: number
-          completed_count: number
-          current_level: number
-          progress_percentage: number
+          experience_points: number | null
+          completed_count: number | null
+          current_level: number | null
+          progress_percentage: number | null
         }
         Insert: {
           user_id: string
           app_id: string
-          best_score?: number
-          total_sessions?: number
-          total_time_spent?: number
+          best_score?: number | null
+          total_sessions?: number | null
+          total_time_spent?: number | null
           last_played_at?: string | null
-          experience_points?: number
-          completed_count?: number
-          current_level?: number
-          progress_percentage?: number
+          experience_points?: number | null
+          completed_count?: number | null
+          current_level?: number | null
+          progress_percentage?: number | null
         }
         Update: {
           user_id?: string
           app_id?: string
-          best_score?: number
-          total_sessions?: number
-          total_time_spent?: number
+          best_score?: number | null
+          total_sessions?: number | null
+          total_time_spent?: number | null
           last_played_at?: string | null
-          experience_points?: number
-          completed_count?: number
-          current_level?: number
-          progress_percentage?: number
+          experience_points?: number | null
+          completed_count?: number | null
+          current_level?: number | null
+          progress_percentage?: number | null
         }
       }
       user_app_interactions: {
@@ -445,7 +378,7 @@ export type Database = {
           user_id: string
           app_id: string
           interaction_type: 'START' | 'COMPLETE' | 'QUIT' | 'REVIEW'
-          interaction_timestamp: string
+          interaction_timestamp: string | null
           session_duration: number | null
           performance_score: number | null
           additional_metadata: any | null
@@ -455,7 +388,7 @@ export type Database = {
           user_id: string
           app_id: string
           interaction_type: 'START' | 'COMPLETE' | 'QUIT' | 'REVIEW'
-          interaction_timestamp?: string
+          interaction_timestamp?: string | null
           session_duration?: number | null
           performance_score?: number | null
           additional_metadata?: any | null
@@ -465,11 +398,36 @@ export type Database = {
           user_id?: string
           app_id?: string
           interaction_type?: 'START' | 'COMPLETE' | 'QUIT' | 'REVIEW'
-          interaction_timestamp?: string
+          interaction_timestamp?: string | null
           session_duration?: number | null
           performance_score?: number | null
           additional_metadata?: any | null
         }
+      }
+    }
+    Functions: {
+      get_app_recommendations: {
+        Args: { p_user_id: string; p_limit?: number }
+        Returns: {
+          app_id: string
+          name: string
+          description: string
+          difficulty_level: string
+          estimated_duration: number
+          recommendation_score: number
+        }[]
+      }
+      get_app_leaderboard: {
+        Args: { p_app_id: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          user_id: string
+          username: string
+          best_score: number
+          experience_points: number
+          total_sessions: number
+          rank: number
+          percentile: number
+        }[]
       }
     }
   }
