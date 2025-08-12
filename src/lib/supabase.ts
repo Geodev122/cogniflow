@@ -279,6 +279,52 @@ export type Database = {
           source_id?: string | null
           recorded_at?: string
         }
+      },
+      session_notes: {
+        Row: {
+          id: string
+          appointment_id: string | null
+          therapist_id: string | null
+          progress_notes: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          appointment_id?: string | null
+          therapist_id?: string | null
+          progress_notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          appointment_id?: string | null
+          therapist_id?: string | null
+          progress_notes?: string | null
+          created_at?: string
+        }
+      },
+      document_uploads: {
+        Row: {
+          id: string
+          session_id: string | null
+          therapist_id: string | null
+          file_url: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id?: string | null
+          therapist_id?: string | null
+          file_url: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string | null
+          therapist_id?: string | null
+          file_url?: string
+          created_at?: string
+        }
       }
     }
   }
