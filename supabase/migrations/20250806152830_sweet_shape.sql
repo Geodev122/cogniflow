@@ -131,14 +131,13 @@ AS $$
 BEGIN
   -- This will be called when a new user is created in auth.users
   -- We'll create a basic profile that can be updated later
-  INSERT INTO profiles (id, role, first_name, last_name, email, created_at)
+  INSERT INTO profiles (id, role, first_name, last_name, email)
   VALUES (
     NEW.id,
     'client', -- Default role, can be changed later
     COALESCE(NEW.raw_user_meta_data->>'first_name', 'User'),
     COALESCE(NEW.raw_user_meta_data->>'last_name', 'Name'),
-    NEW.email,
-    now()
+    NEW.email
   )
   ON CONFLICT (id) DO NOTHING;
   
@@ -167,8 +166,8 @@ BEGIN
   
   IF auth_user_id IS NOT NULL THEN
     -- Update the user's role
-    UPDATE profiles 
-    SET role = new_role, updated_at = now()
+    UPDATE profiles
+    SET role = new_role
     WHERE id = auth_user_id;
     
     GET DIAGNOSTICS updated_rows = ROW_COUNT;
