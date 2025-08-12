@@ -212,23 +212,9 @@ export const ClientManagement: React.FC = () => {
           return
         }
       } else {
-        // Create new client profile
-        clientId = crypto.randomUUID()
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: clientId,
-            role: 'client',
-            first_name: clientData.firstName,
-            last_name: clientData.lastName,
-            email: clientData.email,
-            whatsapp_number: clientData.whatsappNumber,
-            patient_code: patientCode,
-            created_by_therapist: profile!.id,
-            password_set: false
-          })
-
-        if (profileError) throw profileError
+        // For now, just show a message that the client needs to register first
+        alert('Client must register first. Please ask them to create an account with this email: ' + clientData.email)
+        return
       }
 
       // Create therapist-client relation

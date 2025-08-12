@@ -141,14 +141,14 @@ export const AssessmentTools: React.FC = () => {
 
   const assignAssessment = async (assessmentId: string, clientIds: string[], dueDate: string, instructions: string) => {
     try {
-      const assessment = assessmentLibrary.find(a => a.id === assessmentId)
+      const assessment = assessmentLibrary.find(a => a.id.toString() === assessmentId)
       if (!assessment) return
 
       const assignments = clientIds.map(clientId => ({
         therapist_id: profile!.id,
         client_id: clientId,
         form_type: 'psychometric',
-        form_id: assessmentId,
+        form_id: assessment.id.toString(),
         title: assessment.name,
         instructions,
         due_date: dueDate,
@@ -160,20 +160,6 @@ export const AssessmentTools: React.FC = () => {
         .insert(assignments)
 
       if (error) throw error
-
-      // Also create entries in psychometric_forms table
-      const psychometricForms = clientIds.map(clientId => ({
-        therapist_id: profile!.id,
-        client_id: clientId,
-        form_type: assessment.abbreviation?.toLowerCase() || 'custom',
-        title: assessment.name,
-        questions: assessment.questions,
-        status: 'assigned'
-      }))
-
-      await supabase
-        .from('psychometric_forms')
-        .insert(psychometricForms)
 
       await fetchAssignedAssessments()
       setShowAssignModal(false)

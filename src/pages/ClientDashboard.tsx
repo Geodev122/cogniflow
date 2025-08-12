@@ -35,42 +35,38 @@ export default function ClientDashboard() {
   }
   
   const {
-    worksheets,
-    psychometricForms,
-    exercises,
+    assignments,
     progressData,
     loading,
     error,
-    updateWorksheet,
-    completePsychometricForm,
-    updateExerciseProgress
+    updateAssignment,
+    completeAssignment
   } = useClientData()
   
   const [activeTab, setActiveTab] = useState('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [selectedWorksheet, setSelectedWorksheet] = useState<any>(null)
-  const [selectedForm, setSelectedForm] = useState<any>(null)
-  const [selectedExercise, setSelectedExercise] = useState<any>(null)
+  const [selectedAssignment, setSelectedAssignment] = useState<any>(null)
 
   // Memoized calculations for better performance
   const stats = useMemo(() => {
-    const totalItems = worksheets.length + psychometricForms.length + exercises.length
-    const completedItems = [...worksheets, ...psychometricForms, ...exercises]
-      .filter(item => item.status === 'completed').length
+    const worksheets = assignments.filter(a => a.form_type === 'worksheet')
+    const assessments = assignments.filter(a => a.form_type === 'psychometric')
+    const exercises = assignments.filter(a => a.form_type === 'exercise')
+    const completed = assignments.filter(a => a.status === 'completed').length
     
     return {
       worksheets: worksheets.length,
-      assessments: psychometricForms.length,
+      assessments: assessments.length,
       exercises: exercises.length,
-      completed: completedItems
+      completed: completed
     }
-  }, [worksheets, psychometricForms, exercises])
+  }, [assignments])
 
   const recentActivities = useMemo(() => {
-    return [...worksheets, ...psychometricForms, ...exercises]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    return assignments
+      .sort((a, b) => new Date(b.assigned_at).getTime() - new Date(a.assigned_at).getTime())
       .slice(0, 3)
-  }, [worksheets, psychometricForms, exercises])
+  }, [assignments])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -242,7 +238,7 @@ export default function ClientDashboard() {
                       <p className="text-sm font-medium text-gray-900">{item.title}</p>
                       <p className="text-xs text-gray-500">{formatDate(item.created_at)}</p>
                     </div>
-                  </div>
+                        {formatDate(item.assigned_at)}
                 )) : (
                 <div className="text-center py-8">
                   <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
@@ -324,7 +320,7 @@ export default function ClientDashboard() {
         <h3 className="text-lg font-medium text-gray-900">CBT Worksheets</h3>
       </div>
       <div className="overflow-hidden">
-        {worksheets.length === 0 ? (
+        {assignments.filter(a => a.form_type === 'worksheet').length === 0 ? (
           <div className="text-center py-12">
             <FileText className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No worksheets yet</h3>
@@ -334,32 +330,32 @@ export default function ClientDashboard() {
           </div>
         ) : (
           <ul className="divide-y divide-gray-200">
-            {worksheets.map((worksheet) => (
-              <li key={worksheet.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+            {assignments.filter(a => a.form_type === 'worksheet').map((assignment) => (
+              <li key={assignment.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">
-                      <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(worksheet.status)}`}>
+                      <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(assignment.status)}`}>
                         <div className="flex items-center space-x-1">
-                          {getStatusIcon(worksheet.status)}
-                          <span className="capitalize">{worksheet.status.replace('_', ' ')}</span>
+                          {getStatusIcon(assignment.status)}
+                          <span className="capitalize">{assignment.status.replace('_', ' ')}</span>
                         </div>
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-900">{worksheet.title}</h4>
+                      <h4 className="text-sm font-medium text-gray-900">{assignment.title}</h4>
                       <p className="text-sm text-gray-500">Assigned by your therapist</p>
                       <p className="text-xs text-gray-400">
-                        {formatDate(worksheet.created_at)}
+                        {formatDate(assignment.assigned_at)}
                       </p>
                     </div>
                   </div>
                   
                   <button
-                    onClick={() => setSelectedWorksheet(worksheet)}
+                    onClick={() => setSelectedAssignment(assignment)}
                     className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                   >
-                    {worksheet.status === 'completed' ? 'Review' : 'Open'}
+                    {assignment.status === 'completed' ? 'Review' : 'Open'}
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </button>
                 </div>
@@ -377,7 +373,7 @@ export default function ClientDashboard() {
         <h3 className="text-lg font-medium text-gray-900">Psychometric Assessments</h3>
       </div>
       <div className="overflow-hidden">
-        {psychometricForms.length === 0 ? (
+        {assignments.filter(a => a.form_type === 'psychometric').length === 0 ? (
           <div className="text-center py-12">
             <ClipboardList className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No assessments yet</h3>
@@ -387,39 +383,32 @@ export default function ClientDashboard() {
           </div>
         ) : (
           <ul className="divide-y divide-gray-200">
-            {psychometricForms.map((form) => (
-              <li key={form.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
+            {assignments.filter(a => a.form_type === 'psychometric').map((assignment) => (
+              <li key={assignment.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">
-                      <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(form.status)}`}>
+                      <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(assignment.status)}`}>
                         <div className="flex items-center space-x-1">
-                          {getStatusIcon(form.status)}
-                          <span className="capitalize">{form.status}</span>
+                          {getStatusIcon(assignment.status)}
+                          <span className="capitalize">{assignment.status}</span>
                         </div>
                       </div>
                     </div>
                     <div>
-                      <h4 className="text-sm font-medium text-gray-900">{form.title}</h4>
-                      <p className="text-sm text-gray-500">
-                        {form.form_type.toUpperCase()} • Assigned by your therapist
-                      </p>
+                      <h4 className="text-sm font-medium text-gray-900">{assignment.title}</h4>
+                      <p className="text-sm text-gray-500">Assigned by your therapist</p>
                       <p className="text-xs text-gray-400">
-                        {formatDate(form.created_at)}
+                        {formatDate(assignment.assigned_at)}
                       </p>
-                      {form.status === 'completed' && (
-                        <p className="text-xs text-green-600 font-medium">
-                          Score: {form.score}
-                        </p>
-                      )}
                     </div>
                   </div>
                   
                   <button
-                    onClick={() => setSelectedForm(form)}
+                    onClick={() => setSelectedAssignment(assignment)}
                     className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-purple-700 bg-purple-100 hover:bg-purple-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
                   >
-                    {form.status === 'completed' ? 'Review' : 'Take Assessment'}
+                    {assignment.status === 'completed' ? 'Review' : 'Take Assessment'}
                     <ChevronRight className="w-4 h-4 ml-1" />
                   </button>
                 </div>
@@ -437,7 +426,7 @@ export default function ClientDashboard() {
         <h3 className="text-lg font-medium text-gray-900">Therapeutic Exercises</h3>
       </div>
       <div className="overflow-hidden">
-        {exercises.length === 0 ? (
+        {assignments.filter(a => a.form_type === 'exercise').length === 0 ? (
           <div className="text-center py-12">
             <Gamepad2 className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No exercises yet</h3>
@@ -447,35 +436,32 @@ export default function ClientDashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
-            {exercises.map((exercise) => (
-              <div key={exercise.id} className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+            {assignments.filter(a => a.form_type === 'exercise').map((assignment) => (
+              <div key={assignment.id} className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-4xl">{getExerciseIcon(exercise.exercise_type)}</div>
-                  <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(exercise.status)}`}>
+                  <div className="text-4xl">🎯</div>
+                  <div className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(assignment.status)}`}>
                     <div className="flex items-center space-x-1">
-                      {getStatusIcon(exercise.status)}
-                      <span className="capitalize">{exercise.status.replace('_', ' ')}</span>
+                      {getStatusIcon(assignment.status)}
+                      <span className="capitalize">{assignment.status.replace('_', ' ')}</span>
                     </div>
                   </div>
                 </div>
                 
-                <h4 className="text-lg font-semibold text-gray-900 mb-2">{exercise.title}</h4>
-                <p className="text-sm text-gray-600 mb-4">{exercise.description}</p>
+                <h4 className="text-lg font-semibold text-gray-900 mb-2">{assignment.title}</h4>
+                <p className="text-sm text-gray-600 mb-4">{assignment.instructions}</p>
                 
                 <div className="text-xs text-gray-500 mb-4">
                   <p>Assigned by your therapist</p>
-                  <p>{formatDate(exercise.created_at)}</p>
-                  {exercise.last_played_at && (
-                    <p>Last played: {formatDate(exercise.last_played_at)}</p>
-                  )}
+                  <p>{formatDate(assignment.assigned_at)}</p>
                 </div>
 
                 <button
-                  onClick={() => setSelectedExercise(exercise)}
+                  onClick={() => setSelectedAssignment(assignment)}
                   className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors"
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  {exercise.status === 'completed' ? 'Play Again' : 'Start Exercise'}
+                  {assignment.status === 'completed' ? 'Play Again' : 'Start Exercise'}
                 </button>
               </div>
             ))}
@@ -486,9 +472,16 @@ export default function ClientDashboard() {
   )
 
   const renderProgress = () => {
-    const moodData = progressData.filter(d => d.metric_type.includes('mood') || d.metric_type.includes('phq'))
-    const anxietyData = progressData.filter(d => d.metric_type.includes('anxiety') || d.metric_type.includes('gad'))
-    const wellbeingData = progressData.filter(d => d.metric_type.includes('wellbeing') || d.metric_type.includes('quality'))
+    const moodData = progressData.filter(d => d.metric_type.includes('mood') || d.metric_type.includes('phq')).map(d => ({
+      date: d.recorded_at,
+      value: d.value,
+      metric_type: d.metric_type
+    }))
+    const anxietyData = progressData.filter(d => d.metric_type.includes('anxiety') || d.metric_type.includes('gad')).map(d => ({
+      date: d.recorded_at,
+      value: d.value,
+      metric_type: d.metric_type
+    }))
 
     return (
       <div className="space-y-6">
@@ -516,15 +509,6 @@ export default function ClientDashboard() {
             color="amber"
           />
         </div>
-
-        {wellbeingData.length > 0 && (
-          <ProgressChart
-            data={wellbeingData}
-            title="Overall Wellbeing"
-            metricType="wellbeing"
-            color="green"
-          />
-        )}
 
         {progressData.length === 0 && (
           <div className="bg-white p-12 rounded-lg shadow-sm border border-gray-200 text-center">
@@ -648,76 +632,31 @@ export default function ClientDashboard() {
       </div>
 
       {/* Modals */}
-      {selectedWorksheet && (
-        <ThoughtRecordModal
-          worksheet={selectedWorksheet}
-          onClose={() => setSelectedWorksheet(null)}
-          onUpdate={updateWorksheet}
-        />
-      )}
-
-      {selectedForm && (
-        <PsychometricForm
-          form={selectedForm}
-          onComplete={(formId, responses, score) => {
-            completePsychometricForm(formId, responses, score)
-            setSelectedForm(null)
-          }}
-          onClose={() => setSelectedForm(null)}
-        />
-      )}
-
-      {selectedExercise && (
-        <GameExercise
-          exercise={selectedExercise}
-          onUpdateProgress={updateExerciseProgress}
-          onClose={() => setSelectedExercise(null)}
+      {selectedAssignment && (
+        <AssignmentModal
+          assignment={selectedAssignment}
+          onClose={() => setSelectedAssignment(null)}
+          onComplete={completeAssignment}
         />
       )}
     </Layout>
   )
 }
 
-// Thought Record Modal Component (keeping existing implementation)
-const ThoughtRecordModal: React.FC<{
-  worksheet: any
+// Generic Assignment Modal Component
+const AssignmentModal: React.FC<{
+  assignment: any
   onClose: () => void
-  onUpdate: (worksheetId: string, content: any, status: string) => void
-}> = ({ worksheet, onClose, onUpdate }) => {
-  const [content, setContent] = useState(worksheet.content)
-
-  const handleChange = (field: string, value: any) => {
-    const newContent = { ...content, [field]: value }
-    setContent(newContent)
-    
-    const newStatus = worksheet.status === 'assigned' ? 'in_progress' : worksheet.status
-    onUpdate(worksheet.id, newContent, newStatus)
-  }
+  onComplete: (assignmentId: string, responses: any, score?: number) => void
+}> = ({ assignment, onClose, onComplete }) => {
+  const [responses, setResponses] = useState({})
 
   const handleComplete = () => {
-    onUpdate(worksheet.id, content, 'completed')
+    onComplete(assignment.id, responses)
     onClose()
   }
 
-  const isCompleted = worksheet.status === 'completed'
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'assigned': return 'text-blue-600 bg-blue-100'
-      case 'in_progress': return 'text-amber-600 bg-amber-100'
-      case 'completed': return 'text-green-600 bg-green-100'
-      default: return 'text-gray-600 bg-gray-100'
-    }
-  }
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'assigned': return <Clock className="w-4 h-4" />
-      case 'in_progress': return <FileText className="w-4 h-4" />
-      case 'completed': return <CheckCircle className="w-4 h-4" />
-      default: return <FileText className="w-4 h-4" />
-    }
-  }
+  const isCompleted = assignment.status === 'completed'
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -727,150 +666,18 @@ const ThoughtRecordModal: React.FC<{
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
           <div className="bg-white px-6 pt-6 pb-4">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-gray-900">Thought Record</h3>
-              <div className={`inline-flex px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(worksheet.status)}`}>
-                <div className="flex items-center space-x-1">
-                  {getStatusIcon(worksheet.status)}
-                  <span className="capitalize">{worksheet.status.replace('_', ' ')}</span>
-                </div>
-              </div>
+              <h3 className="text-2xl font-bold text-gray-900">{assignment.title}</h3>
+              <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
             </div>
             
-            <div className="space-y-6 max-h-96 overflow-y-auto">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  1. Describe the situation
-                </label>
-                <textarea
-                  value={content.situation || ''}
-                  onChange={(e) => handleChange('situation', e.target.value)}
-                  placeholder="What happened? Where were you? Who was involved?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
-                  disabled={isCompleted}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  2. What automatic thought went through your mind?
-                </label>
-                <textarea
-                  value={content.automatic_thought || ''}
-                  onChange={(e) => handleChange('automatic_thought', e.target.value)}
-                  placeholder="What thoughts popped into your head in that moment?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={2}
-                  disabled={isCompleted}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    3. What emotion did you feel?
-                  </label>
-                  <input
-                    type="text"
-                    value={content.emotion || ''}
-                    onChange={(e) => handleChange('emotion', e.target.value)}
-                    placeholder="e.g., anxious, sad, angry"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    disabled={isCompleted}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    4. Intensity (0-10)
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    value={content.intensity || 0}
-                    onChange={(e) => handleChange('intensity', parseInt(e.target.value))}
-                    className="w-full"
-                    disabled={isCompleted}
-                  />
-                  <div className="text-center text-sm text-gray-600 mt-1">
-                    {content.intensity || 0}/10
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  5. Evidence that supports this thought
-                </label>
-                <textarea
-                  value={content.evidence_for || ''}
-                  onChange={(e) => handleChange('evidence_for', e.target.value)}
-                  placeholder="What facts support this thought?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={2}
-                  disabled={isCompleted}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  6. Evidence that contradicts this thought
-                </label>
-                <textarea
-                  value={content.evidence_against || ''}
-                  onChange={(e) => handleChange('evidence_against', e.target.value)}
-                  placeholder="What facts contradict this thought? What would you tell a friend?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={2}
-                  disabled={isCompleted}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  7. More balanced thought
-                </label>
-                <textarea
-                  value={content.balanced_thought || ''}
-                  onChange={(e) => handleChange('balanced_thought', e.target.value)}
-                  placeholder="What's a more realistic, balanced way to think about this?"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={2}
-                  disabled={isCompleted}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    8. New emotion
-                  </label>
-                  <input
-                    type="text"
-                    value={content.new_emotion || ''}
-                    onChange={(e) => handleChange('new_emotion', e.target.value)}
-                    placeholder="How do you feel now?"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    disabled={isCompleted}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    9. New intensity (0-10)
-                  </label>
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    value={content.new_intensity || 0}
-                    onChange={(e) => handleChange('new_intensity', parseInt(e.target.value))}
-                    className="w-full"
-                    disabled={isCompleted}
-                  />
-                  <div className="text-center text-sm text-gray-600 mt-1">
-                    {content.new_intensity || 0}/10
-                  </div>
-                </div>
+            <div className="p-6">
+              <p className="text-gray-600 mb-4">{assignment.instructions}</p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-blue-800 text-sm">
+                  This is a {assignment.form_type} assignment. Click "Mark Complete" when you've finished the task.
+                </p>
               </div>
             </div>
           </div>
