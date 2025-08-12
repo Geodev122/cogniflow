@@ -231,6 +231,30 @@ export type Database = {
           source_id?: string | null
           recorded_at?: string
         }
+      },
+      client_activity: {
+        Row: {
+          id: string
+          therapist_id: string
+          client_id: string
+          type: string
+          details: string | null
+          created_at: string
+        }
+        Insert: {
+          therapist_id: string
+          client_id: string
+          type: string
+          details?: string | null
+          created_at?: string
+        }
+        Update: {
+          therapist_id?: string
+          client_id?: string
+          type?: string
+          details?: string | null
+          created_at?: string
+        }
       }
     }
   }

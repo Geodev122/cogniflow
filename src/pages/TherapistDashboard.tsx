@@ -44,6 +44,16 @@ interface DashboardStats {
   overdueAssignments: number
 }
 
+interface ActivityItem {
+  id: string
+  client_id: string
+  client_first_name: string
+  client_last_name: string
+  type: string
+  details: string | null
+  created_at: string
+}
+
 export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -58,6 +68,7 @@ export const TherapistDashboard: React.FC = () => {
   })
   const [loading, setLoading] = useState(true)
   const [profileCompletion, setProfileCompletion] = useState(0)
+  const [activity, setActivity] = useState<ActivityItem[]>([])
   const { profile } = useAuth()
 
   useEffect(() => {
@@ -66,6 +77,7 @@ export const TherapistDashboard: React.FC = () => {
       supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
         setProfileCompletion(data || 0)
       })
+      fetchRecentActivity()
     }
   }, [profile])
 
@@ -121,6 +133,17 @@ export const TherapistDashboard: React.FC = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchRecentActivity = async () => {
+    if (!profile) return
+
+    const { data } = await supabase.rpc('get_recent_activity', {
+      therapist_id: profile.id,
+      limit_count: 5
+    })
+
+    setActivity(data || [])
   }
 
   const tabs = useMemo(() => [
@@ -396,45 +419,29 @@ export const TherapistDashboard: React.FC = () => {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
+              {activity.length === 0 ? (
+                <div className="flex items-center space-x-3">
+                  <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm text-gray-900">No recent activity</p>
+                    <p className="text-xs text-gray-500">Start by adding clients</p>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">No recent activity</p>
-                  <p className="text-xs text-gray-500">Start by adding clients</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <Users className="w-4 h-4 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">Build your client roster</p>
-                  <p className="text-xs text-gray-500">Add clients to get started</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-amber-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">Create session notes</p>
-                  <p className="text-xs text-gray-500">Document your sessions</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                  <Brain className="w-4 h-4 text-purple-600" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm text-gray-900">Assign therapeutic exercises</p>
-                  <p className="text-xs text-gray-500">Help clients with CBT tools</p>
-                </div>
-              </div>
+              ) : (
+                activity.map(item => (
+                  <div key={item.id} className="flex items-center space-x-3">
+                    <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Users className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-900">{item.details}</p>
+                      <p className="text-xs text-gray-500">{`${item.client_first_name} ${item.client_last_name} • ${new Date(item.created_at).toLocaleString()}`}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
