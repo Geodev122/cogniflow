@@ -5,15 +5,13 @@ import { TherapistProfile } from '../components/therapist/TherapistProfile'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { 
-  Users, 
-  ClipboardList, 
-  FileText, 
-  Calendar, 
-  BookOpen, 
-  TrendingUp, 
-  MessageSquare, 
-  Shield, 
-  Library, 
+  Users,
+  ClipboardList,
+  FileText,
+  Calendar,
+  TrendingUp,
+  MessageSquare,
+  Library,
   BarChart3,
   Brain,
   Target,
@@ -49,7 +47,6 @@ interface DashboardStats {
 export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [showOnboarding, setShowOnboarding] = useState(false)
   const [showOnboardingModal, setShowOnboardingModal] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
@@ -60,16 +57,15 @@ export const TherapistDashboard: React.FC = () => {
     overdueAssignments: 0
   })
   const [loading, setLoading] = useState(true)
+  const [profileCompletion, setProfileCompletion] = useState(0)
   const { profile } = useAuth()
 
-  // Redirect if not a therapist
-  if (profile && profile.role !== 'therapist') {
-    return <Navigate to="/client" replace />
-  }
-
   useEffect(() => {
-    if (profile && activeTab === 'overview') {
+    if (profile) {
       fetchDashboardStats()
+      supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
+        setProfileCompletion(data || 0)
+      })
     }
   }, [profile])
 
@@ -140,10 +136,18 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'profile', name: 'Profile', icon: User },
   ], [])
 
-  const handleOnboardingComplete = (data: any) => {
+  if (profile && profile.role !== 'therapist') {
+    return <Navigate to="/client" replace />
+  }
+
+  const handleOnboardingComplete = (data: unknown) => {
     console.log('Onboarding completed:', data)
     setShowOnboardingModal(false)
-    // Here you would typically save the data to your backend
+    if (profile) {
+      supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
+        setProfileCompletion(data || 0)
+      })
+    }
   }
 
   const renderOverview = () => (
@@ -162,26 +166,33 @@ export const TherapistDashboard: React.FC = () => {
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-16 h-2 bg-gray-200 rounded-full">
-              <div className="w-4 h-2 bg-amber-500 rounded-full transition-all duration-300"></div>
+              <div
+                className="h-2 bg-amber-500 rounded-full transition-all duration-300"
+                style={{ width: `${profileCompletion}%` }}
+              ></div>
             </div>
-            <span className="text-sm text-gray-600">25%</span>
+            <span className="text-sm text-gray-600">{profileCompletion}%</span>
           </div>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
-              <CheckCircle className="w-3 h-3 text-white" />
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profile?.whatsapp_number ? 'bg-green-500' : 'bg-gray-300'}`}>
+              {profile?.whatsapp_number && <CheckCircle className="w-3 h-3 text-white" />}
             </div>
-            <span className="text-sm text-gray-700">Basic Information</span>
+            <span className={`text-sm ${profile?.whatsapp_number ? 'text-gray-700' : 'text-gray-500'}`}>Basic Information</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-gray-300 rounded-full"></div>
-            <span className="text-sm text-gray-500">Professional Details</span>
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profile?.professional_details ? 'bg-green-500' : 'bg-gray-300'}`}>
+              {profile?.professional_details && <CheckCircle className="w-3 h-3 text-white" />}
+            </div>
+            <span className={`text-sm ${profile?.professional_details ? 'text-gray-700' : 'text-gray-500'}`}>Professional Details</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 bg-gray-300 rounded-full"></div>
-            <span className="text-sm text-gray-500">Verification</span>
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profile?.verification_status ? 'bg-green-500' : 'bg-gray-300'}`}>
+              {profile?.verification_status && <CheckCircle className="w-3 h-3 text-white" />}
+            </div>
+            <span className={`text-sm ${profile?.verification_status ? 'text-gray-700' : 'text-gray-500'}`}>Verification</span>
           </div>
         </div>
         
