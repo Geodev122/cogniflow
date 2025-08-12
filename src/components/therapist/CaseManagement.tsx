@@ -130,29 +130,22 @@ export const CaseManagement: React.FC = () => {
             let goals: Goal[] = []
             if (plan) {
               const { data: goalData } = await supabase
-                .from('goals')
+                .from('therapy_goals')
                 .select('*')
                 .eq('treatment_plan_id', plan.id)
                 .order('created_at', { ascending: false })
 
               goals = await Promise.all(
                 (goalData || []).map(async (g: { id: string; goal_text: string; target_date: string | null; progress: number; status: string }) => {
-                  const { data: interventions } = await supabase
-                    .from('interventions')
-                    .select('*')
-                    .eq('goal_id', g.id)
 
                   return {
                     id: g.id,
                     title: g.goal_text,
                     description: '',
                     target_date: g.target_date || '',
-                    progress: g.progress,
+                    progress: g.progress_percentage,
                     status: g.status,
-                    interventions: (interventions || []).map(i => ({
-                      id: i.id,
-                      description: i.description
-                    }))
+                    interventions: []
                   }
                 })
               )
@@ -221,11 +214,14 @@ export const CaseManagement: React.FC = () => {
     if (!selectedCase || !profile) return
     const title = prompt('Plan title')
     if (!title) return
-    const { error } = await supabase.rpc('create_treatment_plan', {
-      p_client: selectedCase.client.id,
-      p_therapist: profile.id,
-      p_title: title
-    })
+    const { error } = await supabase
+      .from('treatment_plans')
+      .insert({
+        client_id: selectedCase.client.id,
+        therapist_id: profile.id,
+        title: title,
+        status: 'active'
+      })
     if (error) {
       console.error('Error creating plan:', error)
     } else {
@@ -237,11 +233,14 @@ export const CaseManagement: React.FC = () => {
     if (!selectedCase?.treatmentPlanId) return
     const text = prompt('Goal description')
     if (!text) return
-    const { error } = await supabase.rpc('add_goal', {
-      p_plan: selectedCase.treatmentPlanId,
-      p_text: text,
-      p_target: null
-    })
+    const { error } = await supabase
+      .from('therapy_goals')
+      .insert({
+        treatment_plan_id: selectedCase.treatmentPlanId,
+        goal_text: text,
+        progress_percentage: 0,
+        status: 'active'
+      })
     if (error) {
       console.error('Error adding goal:', error)
     } else {
@@ -250,10 +249,13 @@ export const CaseManagement: React.FC = () => {
   }
 
   const handleCompleteGoal = async (goalId: string) => {
-    const { error } = await supabase.rpc('update_goal_progress', {
-      p_goal: goalId,
-      p_progress: 100
-    })
+    const { error } = await supabase
+      .from('therapy_goals')
+      .update({
+        progress_percentage: 100,
+        status: 'achieved'
+      })
+      .eq('id', goalId)
     if (error) {
       console.error('Error updating goal:', error)
     } else {
@@ -264,12 +266,23 @@ export const CaseManagement: React.FC = () => {
   const handleAddIntervention = async (goalId: string) => {
     const description = prompt('Intervention description')
     if (!description) return
+    // For now, we'll add interventions as notes to the goal
+    // This can be expanded later with a proper interventions table
+    const { data: goal } = await supabase
+      .from('therapy_goals')
+      .select('notes')
+      .eq('id', goalId)
+      .single()
+    
+    const existingNotes = goal?.notes || ''
+    const updatedNotes = existingNotes ? `${existingNotes}\n• ${description}` : `• ${description}`
+    
     const { error } = await supabase
-      .from('interventions')
-      .insert({ goal_id: goalId, description })
-    if (error) {
-      console.error('Error adding intervention:', error)
-    } else {
+      .from('therapy_goals')
+      .update({ notes: updatedNotes })
+      .eq('id', goalId)
+    
+    if (!error) {
       fetchCaseFiles()
     }
   }

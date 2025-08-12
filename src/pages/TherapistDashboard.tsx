@@ -189,8 +189,41 @@ export const TherapistDashboard: React.FC = () => {
   const fetchInsights = useCallback(async () => {
     if (!profile) return
 
-    const { data } = await supabase.rpc('therapist_insights', { id: profile.id })
-    setInsights((data as Insight[]) || [])
+    try {
+      // Get insights from therapist_insights_metrics view
+      const { data } = await supabase
+        .from('therapist_insights_metrics')
+        .select('*')
+        .eq('therapist_id', profile.id)
+        .single()
+      
+      const insights: Insight[] = []
+      
+      if (data?.overdue_assessments > 0) {
+        insights.push({
+          title: 'Overdue Assessments',
+          message: `${data.overdue_assessments} assessments are overdue and need attention`,
+          severity: 'warning',
+          icon: 'ClipboardList',
+          count: data.overdue_assessments
+        })
+      }
+      
+      if (data?.idle_clients > 0) {
+        insights.push({
+          title: 'Idle Clients',
+          message: `${data.idle_clients} clients haven't had recent activity`,
+          severity: 'info',
+          icon: 'Clock',
+          count: data.idle_clients
+        })
+      }
+      
+      setInsights(insights)
+    } catch (error) {
+      console.error('Error fetching insights:', error)
+      setInsights([])
+    }
   }, [profile])
 
   const fetchTherapistProfile = useCallback(async () => {
@@ -241,9 +274,12 @@ export const TherapistDashboard: React.FC = () => {
   useEffect(() => {
     if (profile) {
       fetchDashboardStats()
-      supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
-        setProfileCompletion(data || 0)
-      })
+      // Calculate profile completion based on available data
+      let completion = 0
+      if (profile.whatsapp_number) completion += 33
+      if (profile.professional_details) completion += 33
+      if (profile.verification_status) completion += 34
+      setProfileCompletion(completion)
       fetchInsights()
       fetchTherapistProfile()
     }
@@ -268,9 +304,12 @@ export const TherapistDashboard: React.FC = () => {
     console.log('Onboarding completed:', data)
     setShowOnboardingModal(false)
     if (profile) {
-      supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
-        setProfileCompletion(data || 0)
-      })
+      // Calculate profile completion based on available data
+      let completion = 0
+      if (profile.whatsapp_number) completion += 33
+      if (profile.professional_details) completion += 33
+      if (profile.verification_status) completion += 34
+      setProfileCompletion(completion)
     }
   }
 

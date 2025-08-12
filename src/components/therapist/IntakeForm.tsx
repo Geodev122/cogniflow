@@ -230,7 +230,7 @@ export const IntakeForm: React.FC<IntakeFormProps> = ({ onClose, onAdd }) => {
           user_id: profile.id,
           action: 'intake_completed',
           resource_type: 'client',
-          resource_id: clientId,
+          resource_id: null,
           client_id: clientId,
           details: {
             milestone: 'Intake Complete',

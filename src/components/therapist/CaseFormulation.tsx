@@ -170,7 +170,7 @@ export const CaseFormulation: React.FC<CaseFormulationProps> = ({ caseFile, onUp
           user_id: profile!.id,
           action: 'case_formulation_updated',
           resource_type: 'case',
-          resource_id: caseFile.client.id,
+          resource_id: null,
           client_id: caseFile.client.id,
           details: {
             milestone: 'Goals Defined',

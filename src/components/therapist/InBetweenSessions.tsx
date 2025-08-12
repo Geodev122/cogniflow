@@ -136,6 +136,7 @@ export const InBetweenSessions: React.FC<InBetweenSessionsProps> = ({ caseFile, 
           user_id: profile!.id,
           action: 'between_session_task_created',
           resource_type: 'task',
+          resource_id: null,
           client_id: caseFile.client.id,
           details: {
             milestone: 'In-Between Progress Recorded',

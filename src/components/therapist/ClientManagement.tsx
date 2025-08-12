@@ -375,9 +375,9 @@ export const ClientManagement: React.FC = () => {
       </div>
 
       {/* Add Client Modal */}
-      {showIntakeForm && (
+      {showAddClient && (
         <IntakeForm
-          onClose={() => setShowIntakeForm(false)}
+          onClose={() => setShowAddClient(false)}
           onAdd={addClientToRoster}
         />
       )}
