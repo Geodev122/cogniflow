@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../context/AuthContext'
 import { Layout } from '../components/Layout'
 import { PsychometricForm } from '../components/PsychometricForm'
 import { ProgressChart } from '../components/ProgressChart'

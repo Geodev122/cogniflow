@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Layout } from '../components/Layout'
 import { TherapistOnboarding } from '../components/therapist/TherapistOnboarding'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../context/AuthContext'
 import {
   Users,
   ClipboardList,

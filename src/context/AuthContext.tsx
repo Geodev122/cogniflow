@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { User } from '@supabase/supabase-js'
+import { createContext, useContext, useEffect, useState } from 'react'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
 interface Profile {
@@ -14,7 +14,25 @@ interface Profile {
   created_at?: string | null
 }
 
-export const useAuth = () => {
+interface AuthContextType {
+  user: User | null
+  profile: Profile | null
+  loading: boolean
+  error: string | null
+  signIn: (email: string, password: string) => Promise<void>
+  signUp: (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string,
+    role: 'therapist' | 'client'
+  ) => Promise<void>
+  signOut: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -22,21 +40,52 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true
-    
+
+    const fetchProfile = async (userId: string) => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single()
+
+        if (error) {
+          console.error('Profile fetch error:', error)
+          setProfile(null)
+          setError('Profile not found')
+          return
+        }
+
+        if (mounted) {
+          setProfile(data)
+          setError(null)
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+        if (mounted) {
+          setProfile(null)
+          setError('Failed to load profile')
+        }
+      }
+    }
+
     const initializeAuth = async () => {
       try {
         setError(null)
-        
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        
+
+        const {
+          data: { session },
+          error: sessionError
+        } = await supabase.auth.getSession()
+
         if (sessionError) {
           console.error('Session error:', sessionError)
           setError('Failed to get session')
           return
         }
-        
+
         if (!mounted) return
-        
+
         if (session?.user) {
           setUser(session.user)
           await fetchProfile(session.user.id)
@@ -58,59 +107,30 @@ export const useAuth = () => {
       }
     }
 
-    const fetchProfile = async (userId: string) => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single()
-        
-        if (error) {
-          console.error('Profile fetch error:', error)
-          setProfile(null)
-          setError('Profile not found')
-          return
-        }
-        
-        if (mounted) {
-          setProfile(data)
-          setError(null)
-        }
-      } catch (error) {
-        console.error('Error fetching profile:', error)
-        if (mounted) {
-          setProfile(null)
-          setError('Failed to load profile')
-        }
-      }
-    }
-
     initializeAuth()
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return
-        
-        setError(null)
-        
-        try {
-          if (event === 'SIGNED_IN' && session?.user) {
-            setUser(session.user)
-            await fetchProfile(session.user.id)
-          } else if (event === 'SIGNED_OUT') {
-            setUser(null)
-            setProfile(null)
-          }
-        } catch (error) {
-          console.error('Auth state change error:', error)
-          if (mounted) {
-            setError('Authentication error occurred')
-          }
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return
+
+      setError(null)
+
+      try {
+        if (event === 'SIGNED_IN' && session?.user) {
+          setUser(session.user)
+          await fetchProfile(session.user.id)
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null)
+          setProfile(null)
+        }
+      } catch (error) {
+        console.error('Auth state change error:', error)
+        if (mounted) {
+          setError('Authentication error occurred')
         }
       }
-    )
+    })
 
     return () => {
       mounted = false
@@ -121,11 +141,11 @@ export const useAuth = () => {
   const signIn = async (email: string, password: string) => {
     setError(null)
     setLoading(true)
-    
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
-        password,
+        password
       })
       if (error) throw error
     } catch (error) {
@@ -134,10 +154,16 @@ export const useAuth = () => {
     }
   }
 
-  const signUp = async (email: string, password: string, firstName: string, lastName: string, role: 'therapist' | 'client') => {
+  const signUp = async (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string,
+    role: 'therapist' | 'client'
+  ) => {
     setError(null)
     setLoading(true)
-    
+
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -150,9 +176,9 @@ export const useAuth = () => {
           }
         }
       })
-      
+
       if (error) throw error
-      
+
       if (data.user) {
         const { error: profileError } = await supabase
           .from('profiles')
@@ -161,9 +187,9 @@ export const useAuth = () => {
             email,
             first_name: firstName,
             last_name: lastName,
-            role,
+            role
           })
-        
+
         if (profileError) throw profileError
       }
     } catch (error) {
@@ -178,13 +204,20 @@ export const useAuth = () => {
     if (error) throw error
   }
 
-  return {
-    user,
-    profile,
-    loading,
-    error,
-    signIn,
-    signUp,
-    signOut,
-  }
+  return (
+    <AuthContext.Provider
+      value={{ user, profile, loading, error, signIn, signUp, signOut }}
+    >
+      {children}
+    </AuthContext.Provider>
+  )
 }
+
+export const useAuth = () => {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}
+

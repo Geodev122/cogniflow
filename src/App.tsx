@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
 import { ProtectedRoute } from './components/ProtectedRoute'
-import { useAuth } from './hooks/useAuth'
+import { useAuth } from './context/AuthContext'
 
 // Lazy load dashboard components with preload
 const TherapistDashboard = React.lazy(() => 
