@@ -1,0 +1,5 @@
+[auth]
+otp_expiry = 600
+
+[auth.password]
+hibp_enabled = true
