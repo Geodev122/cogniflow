@@ -20,12 +20,11 @@ import {
   Activity,
   BookOpen,
   Award,
-  MessageSquare,
-  Edit,
-  Send,
-  PlayCircle,
-  PlusCircle
-} from 'lucide-react'
+    MessageSquare,
+    Send,
+    PlayCircle,
+    PlusCircle
+  } from 'lucide-react'
 
 interface Client {
   id: string
@@ -35,18 +34,20 @@ interface Client {
   created_at: string
 }
 
-interface CaseFile {
-  client: Client
-  sessionCount: number
-  lastSession?: string
-  nextAppointment?: string
-  assessments: Assessment[]
-  goals: Goal[]
-  assignments: Assignment[]
-  riskLevel: string
-  progressSummary: string
-  caseNotes: string
-}
+  interface CaseFile {
+    client: Client
+    sessionCount: number
+    lastSession?: string
+    nextAppointment?: string
+    assessments: Assessment[]
+    treatmentPlanId?: string
+    treatmentPlanTitle?: string
+    goals: Goal[]
+    assignments: Assignment[]
+    riskLevel: string
+    progressSummary: string
+    caseNotes: string
+  }
 
 interface Assessment {
   id: string
@@ -57,14 +58,20 @@ interface Assessment {
   interpretation: string
 }
 
-interface Goal {
-  id: string
-  title: string
-  description: string
-  target_date: string
-  progress: number
-  status: 'active' | 'achieved' | 'modified' | 'discontinued'
-}
+  interface Goal {
+    id: string
+    title: string
+    description: string
+    target_date: string
+    progress: number
+    status: 'active' | 'completed' | 'achieved' | 'modified' | 'discontinued'
+    interventions: Intervention[]
+  }
+
+  interface Intervention {
+    id: string
+    description: string
+  }
 
 interface Assignment {
   id: string
@@ -83,7 +90,6 @@ export const CaseManagement: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [riskFilter, setRiskFilter] = useState('all')
   const [loading, setLoading] = useState(true)
-  const [showNewGoal, setShowNewGoal] = useState(false)
   const [showNewAssignment, setShowNewAssignment] = useState(false)
   const { profile } = useAuth()
 
@@ -114,93 +120,178 @@ export const CaseManagement: React.FC = () => {
 
       if (relationsError) throw relationsError
 
-      const cases = await Promise.all(
-        (relations || []).map(async (relation: any) => {
-          const client = relation.profiles
+        const cases = await Promise.all(
+          (relations || []).map(async (relation: { profiles: Client }) => {
+            const client: Client = relation.profiles
 
-          // Get session count
-          const { data: sessions } = await supabase
-            .from('appointments')
-            .select('id, appointment_date, status')
-            .eq('client_id', client.id)
-            .eq('therapist_id', profile.id)
+            // Get session count
+            const { data: sessions } = await supabase
+              .from('appointments')
+              .select('id, appointment_date, status')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
 
-          // Get assessments
-          const { data: assessments } = await supabase
-            .from('assessment_reports')
-            .select('*')
-            .eq('client_id', client.id)
-            .eq('therapist_id', profile.id)
-            .order('created_at', { ascending: false })
+            // Get assessments
+            const { data: assessments } = await supabase
+              .from('assessment_reports')
+              .select('*')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
+              .order('created_at', { ascending: false })
 
-          // Get goals
-          const { data: goals } = await supabase
-            .from('therapy_goals')
-            .select('*')
-            .eq('treatment_plan_id', client.id) // Simplified for demo
-            .order('created_at', { ascending: false })
+            // Get treatment plan
+            const { data: plan } = await supabase
+              .from('treatment_plans')
+              .select('id, title')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
+              .single()
 
-          // Get assignments
-          const { data: assignments } = await supabase
-            .from('form_assignments')
-            .select('*')
-            .eq('client_id', client.id)
-            .eq('therapist_id', profile.id)
-            .order('assigned_at', { ascending: false })
+            // Get goals with interventions
+            let goals: Goal[] = []
+            if (plan) {
+              const { data: goalData } = await supabase
+                .from('goals')
+                .select('*')
+                .eq('treatment_plan_id', plan.id)
+                .order('created_at', { ascending: false })
 
-          // Get client profile for risk level
-          const { data: clientProfile } = await supabase
-            .from('client_profiles')
-            .select('risk_level, notes')
-            .eq('client_id', client.id)
-            .eq('therapist_id', profile.id)
-            .single()
+              goals = await Promise.all(
+                (goalData || []).map(async (g: { id: string; goal_text: string; target_date: string | null; progress: number; status: string }) => {
+                  const { data: interventions } = await supabase
+                    .from('interventions')
+                    .select('*')
+                    .eq('goal_id', g.id)
 
-          const completedSessions = sessions?.filter(s => s.status === 'completed') || []
-          const upcomingSessions = sessions?.filter(s => s.status === 'scheduled' && new Date(s.appointment_date) > new Date()) || []
+                  return {
+                    id: g.id,
+                    title: g.goal_text,
+                    description: '',
+                    target_date: g.target_date || '',
+                    progress: g.progress,
+                    status: g.status,
+                    interventions: (interventions || []).map(i => ({
+                      id: i.id,
+                      description: i.description
+                    }))
+                  }
+                })
+              )
+            }
 
-          return {
-            client,
-            sessionCount: completedSessions.length,
-            lastSession: completedSessions.length > 0 ? completedSessions[completedSessions.length - 1].appointment_date : undefined,
-            nextAppointment: upcomingSessions.length > 0 ? upcomingSessions[0].appointment_date : undefined,
-            assessments: assessments?.map(a => ({
-              id: a.id,
-              assessment_name: a.title,
-              score: a.content?.score || 0,
-              max_score: a.content?.max_score || 100,
-              date: a.created_at,
-              interpretation: a.content?.interpretation || ''
-            })) || [],
-            goals: goals?.map(g => ({
-              id: g.id,
-              title: g.goal_text,
-              description: g.notes || '',
-              target_date: g.target_date,
-              progress: g.progress_percentage,
-              status: g.status
-            })) || [],
-            assignments: assignments?.map(a => ({
-              id: a.id,
-              type: a.form_type as any,
-              title: a.title,
-              description: a.instructions || '',
-              due_date: a.due_date,
-              status: a.status as any,
-              assigned_date: a.assigned_at
-            })) || [],
-            riskLevel: clientProfile?.risk_level || 'low',
-            progressSummary: clientProfile?.notes || 'No progress notes available',
-            caseNotes: clientProfile?.notes || ''
-          }
-        })
-      )
+            // Get assignments
+            const { data: assignments } = await supabase
+              .from('form_assignments')
+              .select('*')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
+              .order('assigned_at', { ascending: false })
+
+            // Get client profile for risk level
+            const { data: clientProfile } = await supabase
+              .from('client_profiles')
+              .select('risk_level, notes')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
+              .single()
+
+            const completedSessions = sessions?.filter(s => s.status === 'completed') || []
+            const upcomingSessions = sessions?.filter(s => s.status === 'scheduled' && new Date(s.appointment_date) > new Date()) || []
+
+            return {
+              client,
+              sessionCount: completedSessions.length,
+              lastSession: completedSessions.length > 0 ? completedSessions[completedSessions.length - 1].appointment_date : undefined,
+              nextAppointment: upcomingSessions.length > 0 ? upcomingSessions[0].appointment_date : undefined,
+              assessments: assessments?.map(a => ({
+                id: a.id,
+                assessment_name: a.title,
+                score: a.content?.score || 0,
+                max_score: a.content?.max_score || 100,
+                date: a.created_at,
+                interpretation: a.content?.interpretation || ''
+              })) || [],
+              treatmentPlanId: plan?.id,
+              treatmentPlanTitle: plan?.title,
+              goals,
+              assignments: assignments?.map(a => ({
+                id: a.id,
+                type: a.form_type as 'worksheet' | 'exercise' | 'assessment' | 'homework',
+                title: a.title,
+                description: a.instructions || '',
+                due_date: a.due_date,
+                status: a.status as 'assigned' | 'in_progress' | 'completed' | 'overdue',
+                assigned_date: a.assigned_at
+              })) || [],
+              riskLevel: clientProfile?.risk_level || 'low',
+              progressSummary: clientProfile?.notes || 'No progress notes available',
+              caseNotes: clientProfile?.notes || ''
+            }
+          })
+        )
 
       setCaseFiles(cases)
     } catch (error) {
       console.error('Error fetching case files:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleCreatePlan = async () => {
+    if (!selectedCase || !profile) return
+    const title = prompt('Plan title')
+    if (!title) return
+    const { error } = await supabase.rpc('create_treatment_plan', {
+      p_client: selectedCase.client.id,
+      p_therapist: profile.id,
+      p_title: title
+    })
+    if (error) {
+      console.error('Error creating plan:', error)
+    } else {
+      fetchCaseFiles()
+    }
+  }
+
+  const handleAddGoal = async () => {
+    if (!selectedCase?.treatmentPlanId) return
+    const text = prompt('Goal description')
+    if (!text) return
+    const { error } = await supabase.rpc('add_goal', {
+      p_plan: selectedCase.treatmentPlanId,
+      p_text: text,
+      p_target: null
+    })
+    if (error) {
+      console.error('Error adding goal:', error)
+    } else {
+      fetchCaseFiles()
+    }
+  }
+
+  const handleCompleteGoal = async (goalId: string) => {
+    const { error } = await supabase.rpc('update_goal_progress', {
+      p_goal: goalId,
+      p_progress: 100
+    })
+    if (error) {
+      console.error('Error updating goal:', error)
+    } else {
+      fetchCaseFiles()
+    }
+  }
+
+  const handleAddIntervention = async (goalId: string) => {
+    const description = prompt('Intervention description')
+    if (!description) return
+    const { error } = await supabase
+      .from('interventions')
+      .insert({ goal_id: goalId, description })
+    if (error) {
+      console.error('Error adding intervention:', error)
+    } else {
+      fetchCaseFiles()
     }
   }
 
@@ -278,22 +369,15 @@ export const CaseManagement: React.FC = () => {
                 Client since {formatDate(selectedCase.client.created_at)}
               </p>
             </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setShowNewGoal(true)}
-                className="inline-flex items-center px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-              >
-                <Target className="w-4 h-4 mr-1" />
-                New Goal
-              </button>
-              <button
-                onClick={() => setShowNewAssignment(true)}
-                className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-              >
-                <Send className="w-4 h-4 mr-1" />
-                Assign Task
-              </button>
-            </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setShowNewAssignment(true)}
+                  className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  <Send className="w-4 h-4 mr-1" />
+                  Assign Task
+                </button>
+              </div>
           </div>
         </div>
 
@@ -311,7 +395,7 @@ export const CaseManagement: React.FC = () => {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id as 'overview' | 'goals' | 'assignments' | 'progress' | 'notes')}
                   className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
@@ -416,59 +500,92 @@ export const CaseManagement: React.FC = () => {
 
         {activeTab === 'goals' && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Treatment Goals</h3>
-              <button
-                onClick={() => setShowNewGoal(true)}
-                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Goal
-              </button>
-            </div>
-            
-            {selectedCase.goals.length === 0 ? (
+            {!selectedCase.treatmentPlanId ? (
               <div className="text-center py-8">
                 <Target className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No goals set</h3>
-                <p className="mt-1 text-sm text-gray-500">Start by adding treatment goals for this client.</p>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No treatment plan</h3>
+                <p className="mt-1 text-sm text-gray-500">Create a plan to start setting goals.</p>
+                <button
+                  onClick={handleCreatePlan}
+                  className="mt-4 inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Plan
+                </button>
               </div>
             ) : (
-              <div className="space-y-4">
-                {selectedCase.goals.map((goal) => (
-                  <div key={goal.id} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900">{goal.title}</h4>
-                        <p className="text-sm text-gray-600 mt-1">{goal.description}</p>
-                      </div>
-                      <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(goal.status)}`}>
-                        {goal.status}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="text-sm text-gray-500">
-                          Target: {formatDate(goal.target_date)}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="w-24 bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-green-600 h-2 rounded-full" 
-                              style={{ width: `${goal.progress}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-sm text-gray-600">{goal.progress}%</span>
-                        </div>
-                      </div>
-                      <button className="text-blue-600 hover:text-blue-800 text-sm">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                    </div>
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900">{selectedCase.treatmentPlanTitle}</h3>
+                  <button
+                    onClick={handleAddGoal}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Goal
+                  </button>
+                </div>
+
+                {selectedCase.goals.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Target className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No goals set</h3>
+                    <p className="mt-1 text-sm text-gray-500">Start by adding treatment goals for this client.</p>
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <div className="space-y-4">
+                    {selectedCase.goals.map((goal) => (
+                      <div key={goal.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">{goal.title}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{goal.description}</p>
+                            {goal.interventions.length > 0 && (
+                              <ul className="mt-2 list-disc list-inside text-sm text-gray-600">
+                                {goal.interventions.map(i => (
+                                  <li key={i.id}>{i.description}</li>
+                                ))}
+                              </ul>
+                            )}
+                            <button
+                              onClick={() => handleAddIntervention(goal.id)}
+                              className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              Add Intervention
+                            </button>
+                          </div>
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(goal.status)}`}>
+                            {goal.status}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2">
+                        <div className="flex items-center space-x-4">
+                            <div className="text-sm text-gray-500">Target: {formatDate(goal.target_date)}</div>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-24 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-green-600 h-2 rounded-full"
+                                  style={{ width: `${goal.progress}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm text-gray-600">{goal.progress}%</span>
+                            </div>
+                          </div>
+                          {goal.progress < 100 && (
+                            <button
+                              onClick={() => handleCompleteGoal(goal.id)}
+                              className="text-sm text-green-600 hover:text-green-800"
+                            >
+                              Mark Complete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
