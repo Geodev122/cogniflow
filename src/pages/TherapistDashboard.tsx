@@ -21,9 +21,11 @@ import {
   Menu,
   X,
   User,
-  TrendingUp
+  TrendingUp,
+  Building
 } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
+import { ChevronLeft } from 'lucide-react'
 
 // Lazy load components for better performance
 const ClientManagement = React.lazy(() => import('../components/therapist/ClientManagement').then(m => ({ default: m.ClientManagement })))
@@ -291,6 +293,7 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'clients', name: 'Client Management', icon: Users },
     { id: 'cases', name: 'Case Management', icon: FileText },
     { id: 'resources', name: 'Resource Library', icon: Library },
+    { id: 'clinic-rental', name: 'Clinic Rental', icon: Building },
     { id: 'sessions', name: 'Session Management', icon: Calendar },
     { id: 'communication', name: 'Communication', icon: MessageSquare },
     { id: 'documentation', name: 'Documentation', icon: FileText },
@@ -331,7 +334,10 @@ export const TherapistDashboard: React.FC = () => {
           <div className="flex items-center space-x-2">
             <div className="w-16 h-2 bg-gray-200 rounded-full">
               <div
-                className="h-2 bg-amber-500 rounded-full transition-all duration-300"
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  profileCompletion === 100 ? 'bg-green-500' : 
+                  profileCompletion >= 50 ? 'bg-blue-500' : 'bg-amber-500'
+                }`}
                 style={{ width: `${profileCompletion}%` }}
               ></div>
             </div>
@@ -339,24 +345,70 @@ export const TherapistDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 md:gap-4 mb-4">
           <div className="flex items-center space-x-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profile?.whatsapp_number ? 'bg-green-500' : 'bg-gray-300'}`}>
-              {profile?.whatsapp_number && <CheckCircle className="w-3 h-3 text-white" />}
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+              profile?.whatsapp_number && profile?.first_name && profile?.last_name ? 'bg-green-500' : 'bg-gray-300'
+            }`}>
+              {profile?.whatsapp_number && profile?.first_name && profile?.last_name && <CheckCircle className="w-3 h-3 text-white" />}
             </div>
-            <span className={`text-sm ${profile?.whatsapp_number ? 'text-gray-700' : 'text-gray-500'}`}>Basic Information</span>
+            <span className={`text-xs sm:text-sm ${
+              profile?.whatsapp_number && profile?.first_name && profile?.last_name ? 'text-gray-700' : 'text-gray-500'
+            }`}>Basic Info</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profile?.professional_details ? 'bg-green-500' : 'bg-gray-300'}`}>
-              {profile?.professional_details && <CheckCircle className="w-3 h-3 text-white" />}
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+              profile?.professional_details?.specializations?.length > 0 && 
+              profile?.professional_details?.languages?.length > 0 && 
+              profile?.professional_details?.qualifications ? 'bg-green-500' : 'bg-gray-300'
+            }`}>
+              {profile?.professional_details?.specializations?.length > 0 && 
+               profile?.professional_details?.languages?.length > 0 && 
+               profile?.professional_details?.qualifications && <CheckCircle className="w-3 h-3 text-white" />}
             </div>
-            <span className={`text-sm ${profile?.professional_details ? 'text-gray-700' : 'text-gray-500'}`}>Professional Details</span>
+            <span className={`text-xs sm:text-sm ${
+              profile?.professional_details?.specializations?.length > 0 ? 'text-gray-700' : 'text-gray-500'
+            }`}>Expertise</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profile?.verification_status ? 'bg-green-500' : 'bg-gray-300'}`}>
-              {profile?.verification_status && <CheckCircle className="w-3 h-3 text-white" />}
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+              profile?.professional_details?.bio && profile?.professional_details.bio.length >= 150 ? 'bg-green-500' : 'bg-gray-300'
+            }`}>
+              {profile?.professional_details?.bio && profile?.professional_details.bio.length >= 150 && <CheckCircle className="w-3 h-3 text-white" />}
             </div>
-            <span className={`text-sm ${profile?.verification_status ? 'text-gray-700' : 'text-gray-500'}`}>Verification</span>
+            <span className={`text-xs sm:text-sm ${
+              profile?.professional_details?.bio && profile?.professional_details.bio.length >= 150 ? 'text-gray-700' : 'text-gray-500'
+            }`}>Story</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+              profile?.professional_details?.practice_locations?.length > 0 ? 'bg-green-500' : 'bg-gray-300'
+            }`}>
+              {profile?.professional_details?.practice_locations?.length > 0 && <CheckCircle className="w-3 h-3 text-white" />}
+            </div>
+            <span className={`text-xs sm:text-sm ${
+              profile?.professional_details?.practice_locations?.length > 0 ? 'text-gray-700' : 'text-gray-500'
+            }`}>Practice</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+              profile?.professional_details?.licenses?.length > 0 ? 'bg-green-500' : 'bg-gray-300'
+            }`}>
+              {profile?.professional_details?.licenses?.length > 0 && <CheckCircle className="w-3 h-3 text-white" />}
+            </div>
+            <span className={`text-xs sm:text-sm ${
+              profile?.professional_details?.licenses?.length > 0 ? 'text-gray-700' : 'text-gray-500'
+            }`}>Verification</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+              profile?.verification_status === 'verified' ? 'bg-green-500' : 'bg-gray-300'
+            }`}>
+              {profile?.verification_status === 'verified' && <CheckCircle className="w-3 h-3 text-white" />}
+            </div>
+            <span className={`text-xs sm:text-sm ${
+              profile?.verification_status === 'verified' ? 'text-gray-700' : 'text-gray-500'
+            }`}>Membership</span>
           </div>
         </div>
         
@@ -366,10 +418,14 @@ export const TherapistDashboard: React.FC = () => {
           </p>
           <button
             onClick={() => setShowOnboardingModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
+              profileCompletion === 100 
+                ? 'bg-green-600 hover:bg-green-700 text-white' 
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            }`}
           >
             <User className="w-4 h-4 mr-2" />
-            Complete Profile
+            {profileCompletion === 100 ? 'View Profile' : 'Complete Profile'}
           </button>
         </div>
       </div>
