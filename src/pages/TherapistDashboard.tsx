@@ -1,28 +1,24 @@
 import React, { useState, useEffect } from 'react'
-import { Layout } from '../components/Layout'
 import { TherapistOnboarding } from '../components/therapist/TherapistOnboarding'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import {
   Users,
-  ClipboardList,
   FileText,
   Calendar,
   MessageSquare,
-  Library,
   BarChart3,
   Brain,
   Target,
   Clock,
   CheckCircle,
-  AlertTriangle,
   ChevronRight,
-  Menu,
   X,
   User,
-  TrendingUp,
   Building,
-  ChevronLeft
+  ChevronLeft,
+  LifeBuoy,
+  UserCheck
 } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 
@@ -32,7 +28,6 @@ const CaseManagement = React.lazy(() => import('../components/therapist/CaseMana
 const SessionManagement = React.lazy(() => import('../components/therapist/SessionManagement').then(m => ({ default: m.SessionManagement })))
 const CommunicationTools = React.lazy(() => import('../components/therapist/CommunicationTools').then(m => ({ default: m.CommunicationTools })))
 const DocumentationCompliance = React.lazy(() => import('../components/therapist/DocumentationCompliance').then(m => ({ default: m.DocumentationCompliance })))
-const ResourceLibrary = React.lazy(() => import('../components/therapist/ResourceLibrary').then(m => ({ default: m.ResourceLibrary })))
 const PracticeManagement = React.lazy(() => import('../components/therapist/PracticeManagement').then(m => ({ default: m.PracticeManagement })))
 
 interface DashboardStats {
@@ -62,12 +57,24 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'clients', name: 'Client Management', icon: Users, group: 'client-care', color: 'green' },
     { id: 'cases', name: 'Case Management', icon: FileText, group: 'client-care', color: 'green' },
     { id: 'sessions', name: 'Session Management', icon: Calendar, group: 'client-care', color: 'green' },
-    { id: 'resources', name: 'Resource Library', icon: Library, group: 'resources', color: 'purple' },
     { id: 'communication', name: 'Communication', icon: MessageSquare, group: 'communication', color: 'orange' },
     { id: 'archive', name: 'Archive', icon: FileText, group: 'communication', color: 'orange' },
-    { id: 'clinic-rental', name: 'Clinic Rental', icon: Building, group: 'clinic', color: 'teal' },
-    { id: 'practice', name: 'Practice Management', icon: BarChart3, group: 'practice', color: 'indigo' },
+    { id: 'clinic-rental', name: 'Clinic Rental', icon: Building, group: 'operations', color: 'teal' },
+    { id: 'practice', name: 'Practice Management', icon: BarChart3, group: 'operations', color: 'indigo' },
+    { id: 'supervision', name: 'Supervision', icon: UserCheck, group: 'operations', color: 'indigo' },
+    { id: 'support', name: 'Contact Support', icon: LifeBuoy, group: 'support', color: 'red' },
   ]
+
+  const tabColors: Record<string, { text: string; border: string; bg: string }> = {
+    blue: { text: 'text-blue-600', border: 'border-blue-500', bg: 'bg-blue-50' },
+    green: { text: 'text-green-600', border: 'border-green-500', bg: 'bg-green-50' },
+    orange: { text: 'text-orange-600', border: 'border-orange-500', bg: 'bg-orange-50' },
+    teal: { text: 'text-teal-600', border: 'border-teal-500', bg: 'bg-teal-50' },
+    indigo: { text: 'text-indigo-600', border: 'border-indigo-500', bg: 'bg-indigo-50' },
+    red: { text: 'text-red-600', border: 'border-red-500', bg: 'bg-red-50' }
+  }
+
+  const groupOrder = ['overview', 'client-care', 'communication', 'operations', 'support']
 
   useEffect(() => {
     if (profile?.id) {
@@ -338,16 +345,6 @@ export const TherapistDashboard: React.FC = () => {
                 <ChevronRight className="w-5 h-5 text-green-600 group-hover:translate-x-1 transition-transform" />
               </button>
               
-              <button
-                onClick={() => setActiveTab('resources')}
-                className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors group"
-              >
-                <div className="flex items-center space-x-3">
-                  <Library className="w-6 h-6 text-purple-600" />
-                  <span className="font-medium text-purple-900">Resource Library</span>
-                </div>
-                <ChevronRight className="w-5 h-5 text-purple-600 group-hover:translate-x-1 transition-transform" />
-              </button>
             </div>
           </div>
         </div>
@@ -408,17 +405,11 @@ export const TherapistDashboard: React.FC = () => {
             <CaseManagement />
           </React.Suspense>
         )
-      case 'resources':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <ResourceLibrary />
-          </React.Suspense>
-        )
-      case 'clinic-rental':
-        return renderClinicRental()
-      case 'sessions':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+        case 'clinic-rental':
+          return renderClinicRental()
+        case 'sessions':
+          return (
+            <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <SessionManagement />
           </React.Suspense>
         )
@@ -434,16 +425,30 @@ export const TherapistDashboard: React.FC = () => {
             <DocumentationCompliance />
           </React.Suspense>
         )
-      case 'practice':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <PracticeManagement />
-          </React.Suspense>
-        )
-      default:
-        return renderOverview()
+        case 'practice':
+          return (
+            <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+              <PracticeManagement />
+            </React.Suspense>
+          )
+        case 'supervision':
+          return (
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Supervision</h2>
+              <p className="text-gray-600">Supervision tools are coming soon.</p>
+            </div>
+          )
+        case 'support':
+          return (
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Contact Support</h2>
+              <p className="text-gray-600">Need help? Reach out to our support team.</p>
+            </div>
+          )
+        default:
+          return renderOverview()
+      }
     }
-  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -510,34 +515,45 @@ export const TherapistDashboard: React.FC = () => {
             </button>
           </div>
 
-          <nav className="flex-1 p-4 overflow-y-auto">
-            <div className="space-y-1">
-              {tabs.map((tab) => {
-                const Icon = tab.icon
-                const isActive = activeTab === tab.id
-                
+            <nav className="flex-1 p-4 overflow-y-auto">
+              {groupOrder.map((group) => {
+                const groupTabs = tabs.filter((t) => t.group === group)
+                if (groupTabs.length === 0) return null
+
                 return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all ${
-                      isActive
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
-                    }`}
-                    title={sidebarCollapsed ? tab.name : undefined}
+                  <div
+                    key={group}
+                    className={`${group !== 'overview' ? 'mt-4 pt-4 border-t border-gray-200' : ''} space-y-1`}
                   >
-                    <Icon className={`w-5 h-5 flex-shrink-0 ${
-                      isActive ? 'text-blue-600' : 'text-gray-400'
-                    }`} />
-                    {!sidebarCollapsed && (
-                      <span className="font-medium text-sm truncate">{tab.name}</span>
-                    )}
-                  </button>
+                    {groupTabs.map((tab) => {
+                      const Icon = tab.icon
+                      const isActive = activeTab === tab.id
+                      const colors = tabColors[tab.color]
+
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all border-l-4 ${
+                            colors.border
+                          } ${
+                            isActive
+                              ? `${colors.bg} ${colors.text}`
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
+                          }`}
+                          title={sidebarCollapsed ? tab.name : undefined}
+                        >
+                          <Icon className={`w-5 h-5 flex-shrink-0 ${colors.text}`} />
+                          {!sidebarCollapsed && (
+                            <span className="font-medium text-sm truncate">{tab.name}</span>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
                 )
               })}
-            </div>
-          </nav>
+            </nav>
         </div>
 
         {/* Mobile Navigation Overlay */}
@@ -554,32 +570,45 @@ export const TherapistDashboard: React.FC = () => {
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-              <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon
-                  const isActive = activeTab === tab.id
-                  
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => {
-                        setActiveTab(tab.id)
-                        setMobileMenuOpen(false)
-                      }}
-                      className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all ${
-                        isActive
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
-                      }`}
-                    >
-                      <Icon className={`w-5 h-5 ${
-                        isActive ? 'text-blue-600' : 'text-gray-400'
-                      }`} />
-                      <span className="font-medium text-sm">{tab.name}</span>
-                    </button>
-                  )
-                })}
-              </nav>
+                <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+                  {groupOrder.map((group) => {
+                    const groupTabs = tabs.filter((t) => t.group === group)
+                    if (groupTabs.length === 0) return null
+
+                    return (
+                      <div
+                        key={group}
+                        className={`${group !== 'overview' ? 'mt-4 pt-4 border-t border-gray-200' : ''} space-y-1`}
+                      >
+                        {groupTabs.map((tab) => {
+                          const Icon = tab.icon
+                          const isActive = activeTab === tab.id
+                          const colors = tabColors[tab.color]
+
+                          return (
+                            <button
+                              key={tab.id}
+                              onClick={() => {
+                                setActiveTab(tab.id)
+                                setMobileMenuOpen(false)
+                              }}
+                              className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all border-l-4 ${
+                                colors.border
+                              } ${
+                                isActive
+                                  ? `${colors.bg} ${colors.text}`
+                                  : 'text-gray-600 hover:bg-gray-50 hover:text-gray-700'
+                              }`}
+                            >
+                              <Icon className={`w-5 h-5 ${colors.text}`} />
+                              <span className="font-medium text-sm">{tab.name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+                </nav>
             </div>
           </div>
         )}
