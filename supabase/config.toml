@@ -1,0 +1,2 @@
+[auth]
+otp_expiry = 3600  # 1 hour
