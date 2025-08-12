@@ -330,15 +330,26 @@ export const TherapistDashboard: React.FC = () => {
   }, [profile, fetchDashboardStats, calculateProfileCompletion, fetchInsights, fetchTherapistProfile])
 
   const tabs = useMemo(() => [
-    { id: 'overview', name: 'Overview', icon: Target },
-    { id: 'clients', name: 'Client Management', icon: Users },
-    { id: 'cases', name: 'Case Management', icon: FileText },
-    { id: 'resources', name: 'Resource Library', icon: Library },
-    { id: 'clinic-rental', name: 'Clinic Rental', icon: Building },
-    { id: 'sessions', name: 'Session Management', icon: Calendar },
-    { id: 'communication', name: 'Communication', icon: MessageSquare },
-    { id: 'documentation', name: 'Documentation', icon: FileText },
-    { id: 'practice', name: 'Practice Management', icon: BarChart3 },
+    // Overview - Standalone
+    { id: 'overview', name: 'Overview', icon: Target, group: 'overview', color: 'blue' },
+    
+    // Client Care Group
+    { id: 'clients', name: 'Client Management', icon: Users, group: 'client-care', color: 'green' },
+    { id: 'cases', name: 'Case Management', icon: FileText, group: 'client-care', color: 'green' },
+    { id: 'sessions', name: 'Session Management', icon: Calendar, group: 'client-care', color: 'green' },
+    
+    // Resource Library - Standalone
+    { id: 'resources', name: 'Resource Library', icon: Library, group: 'resources', color: 'purple' },
+    
+    // Communication & Archive Group
+    { id: 'communication', name: 'Communication', icon: MessageSquare, group: 'communication', color: 'orange' },
+    { id: 'archive', name: 'Archive', icon: FileText, group: 'communication', color: 'orange' },
+    
+    // Clinic Rental - Standalone
+    { id: 'clinic-rental', name: 'Clinic Rental', icon: Building, group: 'clinic', color: 'teal' },
+    
+    // Practice Management - Standalone
+    { id: 'practice', name: 'Practice Management', icon: BarChart3, group: 'practice', color: 'indigo' },
   ], [])
 
   if (profile && profile.role !== 'therapist') {
@@ -842,6 +853,7 @@ export const TherapistDashboard: React.FC = () => {
           </React.Suspense>
         )
       case 'documentation':
+      case 'archive':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <DocumentationCompliance />
@@ -925,8 +937,72 @@ export const TherapistDashboard: React.FC = () => {
           </div>
 
           {/* Sidebar Navigation */}
-          <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-            {tabs.map((tab) => {
+          <nav className="flex-1 p-4 overflow-y-auto">
+            {/* Group tabs by category */}
+            {Object.entries(
+              tabs.reduce((groups, tab) => {
+                if (!groups[tab.group]) groups[tab.group] = []
+                groups[tab.group].push(tab)
+                return groups
+              }, {} as Record<string, typeof tabs>)
+            ).map(([groupName, groupTabs], groupIndex) => (
+              <div key={groupName} className={groupIndex > 0 ? 'mt-6' : ''}>
+                {/* Group Separator */}
+                {groupIndex > 0 && !sidebarCollapsed && (
+                  <div className="border-t border-gray-200 mb-4"></div>
+                )}
+                
+                {/* Group Label */}
+                {!sidebarCollapsed && groupTabs.length > 1 && (
+                  <div className="px-2 mb-2">
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      {groupName === 'client-care' ? 'Client Care' : 
+                       groupName === 'communication' ? 'Communication & Archive' :
+                       groupName === 'resources' ? 'Resources' :
+                       groupName === 'clinic' ? 'Services' :
+                       groupName === 'practice' ? 'Practice' : 
+                       groupName}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Group Tabs */}
+                <div className="space-y-1">
+                  {groupTabs.map((tab) => {
+                    const Icon = tab.icon
+                    const isActive = activeTab === tab.id
+                    const colorClasses = {
+                      blue: isActive ? 'bg-blue-50 text-blue-700 border-blue-200' : 'hover:bg-blue-50 hover:text-blue-700',
+                      green: isActive ? 'bg-green-50 text-green-700 border-green-200' : 'hover:bg-green-50 hover:text-green-700',
+                      purple: isActive ? 'bg-purple-50 text-purple-700 border-purple-200' : 'hover:bg-purple-50 hover:text-purple-700',
+                      orange: isActive ? 'bg-orange-50 text-orange-700 border-orange-200' : 'hover:bg-orange-50 hover:text-orange-700',
+                      teal: isActive ? 'bg-teal-50 text-teal-700 border-teal-200' : 'hover:bg-teal-50 hover:text-teal-700',
+                      indigo: isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'hover:bg-indigo-50 hover:text-indigo-700'
+                    }
+                    
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all ${
+                          isActive
+                            ? `${colorClasses[tab.color as keyof typeof colorClasses]} border`
+                            : `text-gray-600 ${colorClasses[tab.color as keyof typeof colorClasses]}`
+                        }`}
+                        title={sidebarCollapsed ? tab.name : undefined}
+                      >
+                        <Icon className={`w-5 h-5 flex-shrink-0 ${
+                          isActive ? `text-${tab.color}-600` : 'text-gray-400'
+                        }`} />
+                        {!sidebarCollapsed && (
+                          <span className="font-medium text-sm truncate">{tab.name}</span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
               const Icon = tab.icon
               const isActive = activeTab === tab.id
               return (
@@ -967,7 +1043,70 @@ export const TherapistDashboard: React.FC = () => {
                 </button>
               </div>
               <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                {tabs.map((tab) => {
+                {Object.entries(
+                  tabs.reduce((groups, tab) => {
+                    if (!groups[tab.group]) groups[tab.group] = []
+                    groups[tab.group].push(tab)
+                    return groups
+                  }, {} as Record<string, typeof tabs>)
+                ).map(([groupName, groupTabs], groupIndex) => (
+                  <div key={groupName} className={groupIndex > 0 ? 'mt-6' : ''}>
+                    {/* Group Separator */}
+                    {groupIndex > 0 && (
+                      <div className="border-t border-gray-200 mb-4"></div>
+                    )}
+                    
+                    {/* Group Label */}
+                    {groupTabs.length > 1 && (
+                      <div className="px-2 mb-3">
+                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                          {groupName === 'client-care' ? 'Client Care' : 
+                           groupName === 'communication' ? 'Communication & Archive' :
+                           groupName === 'resources' ? 'Resources' :
+                           groupName === 'clinic' ? 'Services' :
+                           groupName === 'practice' ? 'Practice' : 
+                           groupName}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Group Tabs */}
+                    <div className="space-y-1">
+                      {groupTabs.map((tab) => {
+                        const Icon = tab.icon
+                        const isActive = activeTab === tab.id
+                        const colorClasses = {
+                          blue: isActive ? 'bg-blue-50 text-blue-700 border-blue-200' : 'hover:bg-blue-50 hover:text-blue-700',
+                          green: isActive ? 'bg-green-50 text-green-700 border-green-200' : 'hover:bg-green-50 hover:text-green-700',
+                          purple: isActive ? 'bg-purple-50 text-purple-700 border-purple-200' : 'hover:bg-purple-50 hover:text-purple-700',
+                          orange: isActive ? 'bg-orange-50 text-orange-700 border-orange-200' : 'hover:bg-orange-50 hover:text-orange-700',
+                          teal: isActive ? 'bg-teal-50 text-teal-700 border-teal-200' : 'hover:bg-teal-50 hover:text-teal-700',
+                          indigo: isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'hover:bg-indigo-50 hover:text-indigo-700'
+                        }
+                        
+                        return (
+                          <button
+                            key={tab.id}
+                            onClick={() => {
+                              setActiveTab(tab.id)
+                              setMobileMenuOpen(false)
+                            }}
+                            className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all ${
+                              isActive
+                                ? `${colorClasses[tab.color as keyof typeof colorClasses]} border`
+                                : `text-gray-600 ${colorClasses[tab.color as keyof typeof colorClasses]}`
+                            }`}
+                          >
+                            <Icon className={`w-5 h-5 ${
+                              isActive ? `text-${tab.color}-600` : 'text-gray-400'
+                            }`} />
+                            <span className="font-medium text-sm">{tab.name}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
                   const Icon = tab.icon
                   const isActive = activeTab === tab.id
                   return (
