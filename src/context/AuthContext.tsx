@@ -38,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const initializeAuthRef = useRef<() => Promise<void>>()
+  const initializeAuthRef = useRef<(() => Promise<void>) | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -164,7 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const retryAuth = () => {
     setError(null)
     setLoading(true)
-    initializeAuthRef.current && initializeAuthRef.current()
+    initializeAuthRef.current?.()
   }
 
   const signIn = async (email: string, password: string) => {
