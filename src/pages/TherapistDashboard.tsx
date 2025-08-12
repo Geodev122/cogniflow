@@ -532,7 +532,7 @@ export const TherapistDashboard: React.FC = () => {
         
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-600">
-            Complete your CogniFlow profile to automatically be listed on TheraWay and start attracting new clients
+            Complete your profile to be listed on TheraWay and start attracting new clients
           </p>
           <button
             onClick={() => setShowOnboardingModal(true)}
