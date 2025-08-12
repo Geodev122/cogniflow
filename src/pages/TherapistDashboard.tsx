@@ -1,28 +1,27 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Layout } from '../components/Layout'
 import { TherapistOnboarding } from '../components/therapist/TherapistOnboarding'
 import { TherapistProfile } from '../components/therapist/TherapistProfile'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-import { 
-  Users,
-  ClipboardList,
-  FileText,
-  Calendar,
-  TrendingUp,
-  MessageSquare,
-  Library,
-  BarChart3,
-  Brain,
-  Target,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  ChevronRight,
-  Menu,
-  X,
-  User
-} from 'lucide-react'
+  import {
+    Users,
+    ClipboardList,
+    FileText,
+    Calendar,
+    MessageSquare,
+    Library,
+    BarChart3,
+    Brain,
+    Target,
+    Clock,
+    CheckCircle,
+    AlertTriangle,
+    ChevronRight,
+    Menu,
+    X,
+    User
+  } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 
 // Lazy load components for better performance
@@ -45,6 +44,14 @@ interface DashboardStats {
   overdueAssignments: number
 }
 
+interface Insight {
+  title: string
+  message: string
+  severity: 'success' | 'warning' | 'info' | 'danger'
+  icon: string
+  count: number
+}
+
 export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -59,18 +66,42 @@ export const TherapistDashboard: React.FC = () => {
   })
   const [loading, setLoading] = useState(true)
   const [profileCompletion, setProfileCompletion] = useState(0)
+  const [insights, setInsights] = useState<Insight[]>([])
   const { profile } = useAuth()
 
-  useEffect(() => {
-    if (profile) {
-      fetchDashboardStats()
-      supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
-        setProfileCompletion(data || 0)
-      })
-    }
-  }, [profile])
+  const iconMap = { ClipboardList, Clock }
+  const severityStyles = {
+    success: {
+      bg: 'bg-green-50',
+      border: 'border-green-200',
+      icon: 'text-green-600',
+      title: 'text-green-900',
+      text: 'text-green-800',
+    },
+    warning: {
+      bg: 'bg-amber-50',
+      border: 'border-amber-200',
+      icon: 'text-amber-600',
+      title: 'text-amber-900',
+      text: 'text-amber-800',
+    },
+    info: {
+      bg: 'bg-blue-50',
+      border: 'border-blue-200',
+      icon: 'text-blue-600',
+      title: 'text-blue-900',
+      text: 'text-blue-800',
+    },
+    danger: {
+      bg: 'bg-red-50',
+      border: 'border-red-200',
+      icon: 'text-red-600',
+      title: 'text-red-900',
+      text: 'text-red-800',
+    },
+  }
 
-  const fetchDashboardStats = async () => {
+  const fetchDashboardStats = useCallback(async () => {
     if (!profile) return
 
     try {
@@ -122,7 +153,24 @@ export const TherapistDashboard: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [profile])
+
+  const fetchInsights = useCallback(async () => {
+    if (!profile) return
+
+    const { data } = await supabase.rpc('therapist_insights', { id: profile.id })
+    setInsights((data as Insight[]) || [])
+  }, [profile])
+
+  useEffect(() => {
+    if (profile) {
+      fetchDashboardStats()
+      supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
+        setProfileCompletion(data || 0)
+      })
+      fetchInsights()
+    }
+  }, [profile, fetchDashboardStats, fetchInsights])
 
   const tabs = useMemo(() => [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -447,31 +495,25 @@ export const TherapistDashboard: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900">Client Insights</h3>
           </div>
           <div className="p-6">
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <TrendingUp className="w-4 h-4 text-green-600" />
-                  <span className="text-sm font-medium text-green-900">Getting Started</span>
-                </div>
-                <p className="text-sm text-green-800">Complete your profile setup to start accepting clients</p>
+            {insights.length > 0 ? (
+              <div className="space-y-4">
+                {insights.map((insight, idx) => {
+                  const Icon = iconMap[insight.icon as keyof typeof iconMap] || Target
+                  const styles = severityStyles[insight.severity] || severityStyles.info
+                  return (
+                    <div key={idx} className={`${styles.bg} border ${styles.border} rounded-lg p-4`}>
+                      <div className="flex items-center space-x-2 mb-2">
+                        <Icon className={`w-4 h-4 ${styles.icon}`} />
+                        <span className={`text-sm font-medium ${styles.title}`}>{insight.title}</span>
+                      </div>
+                      <p className={`text-sm ${styles.text}`}>{insight.message}</p>
+                    </div>
+                  )
+                })}
               </div>
-              
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Target className="w-4 h-4 text-amber-600" />
-                  <span className="text-sm font-medium text-amber-900">Next Steps</span>
-                </div>
-                <p className="text-sm text-amber-800">Add your first client and begin your therapeutic practice</p>
-              </div>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Brain className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">Tools Available</span>
-                </div>
-                <p className="text-sm text-blue-800">CBT worksheets, assessments, and progress tracking ready</p>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-gray-600">No insights available</p>
+            )}
           </div>
         </div>
       </div>
