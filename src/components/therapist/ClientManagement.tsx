@@ -72,7 +72,7 @@ export const ClientManagement: React.FC = () => {
         .from('therapist_client_relations')
         .select(`
           client_id,
-          client:profiles!therapist_client_relations_client_id_fkey (
+          profiles!therapist_client_relations_client_id_fkey (
             id,
             first_name,
             last_name,
@@ -86,8 +86,8 @@ export const ClientManagement: React.FC = () => {
 
       // Get extended client profiles
       const clientsWithProfiles = await Promise.all(
-        (relations || []).map(async (relation: { client: Client }) => {
-          const client = relation.client
+        (relations || []).map(async (relation: { profiles: Client }) => {
+          const client = relation.profiles
 
           // Get extended profile
           const { data: clientProfile } = await supabase

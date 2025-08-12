@@ -87,7 +87,7 @@ export const CaseManagement: React.FC = () => {
         .from('therapist_client_relations')
         .select(`
           client_id,
-          client:profiles!therapist_client_relations_client_id_fkey (
+          profiles!therapist_client_relations_client_id_fkey (
             id,
             first_name,
             last_name,
@@ -100,8 +100,8 @@ export const CaseManagement: React.FC = () => {
       if (relationsError) throw relationsError
 
         const cases = await Promise.all(
-          (relations || []).map(async (relation: { client: Client }) => {
-            const client: Client = relation.client
+          (relations || []).map(async (relation: { profiles: Client }) => {
+            const client: Client = relation.profiles
 
             // Get session count
             const { data: sessions } = await supabase
