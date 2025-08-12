@@ -5,13 +5,15 @@ import { useAuth } from './useAuth'
 // Mock data for fallback when RLS policies fail
 const mockWorksheets: Worksheet[] = [
   {
-    id: 'mock-1',
-    type: 'thought_record',
+    id: 'mock-assign-1',
+    worksheet_id: 'mock-1',
     title: 'Daily Thought Record',
     content: { situation: '', thoughts: '', emotions: '', behaviors: '' },
+    responses: {},
     status: 'assigned',
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
+    completed_at: null
   }
 ]
 
@@ -57,13 +59,15 @@ const mockProgressData: ProgressData[] = [
 ]
 
 interface Worksheet {
-  id: string
-  type: string
+  id: string // assignment id
+  worksheet_id: string
   title: string
   content: any
+  responses: any
   status: 'assigned' | 'in_progress' | 'completed'
   created_at: string
   updated_at: string
+  completed_at: string | null
 }
 
 interface PsychometricForm {
@@ -164,12 +168,12 @@ export const useClientData = () => {
 
     try {
       const { data, error } = await supabase
-        .from('cbt_worksheets')
-        .select(`
-          id, type, title, content, status, created_at, updated_at
-        `)
+        .from('worksheet_assignments')
+        .select(
+          'id, worksheet_id, status, responses, assigned_at, completed_at, worksheets(id, title, content)'
+        )
         .eq('client_id', profile.id)
-        .order('created_at', { ascending: false })
+        .order('assigned_at', { ascending: false })
         .limit(20)
 
       if (error) {
@@ -179,8 +183,18 @@ export const useClientData = () => {
         }
         throw error
       }
-
-      setWorksheets(data || [])
+      const formatted = data?.map((a: any) => ({
+        id: a.id,
+        worksheet_id: a.worksheet_id,
+        title: a.worksheets?.title,
+        content: a.responses || a.worksheets?.content,
+        responses: a.responses,
+        status: a.status,
+        created_at: a.assigned_at,
+        updated_at: a.completed_at || a.assigned_at,
+        completed_at: a.completed_at
+      })) || []
+      setWorksheets(formatted)
     } catch (error) {
       console.error('Error fetching worksheets:', error)
       if (isRecursionError(error)) {
@@ -318,22 +332,24 @@ export const useClientData = () => {
     }
   }, [profile, fetchWorksheets, fetchPsychometricForms, fetchExercises, fetchProgressData])
 
-  const updateWorksheet = useCallback(async (worksheetId: string, content: any, status: string) => {
+  const updateWorksheet = useCallback(async (assignmentId: string, content: any, status: string) => {
     try {
       const { error } = await supabase
-        .from('cbt_worksheets')
-        .update({ 
-          content, 
+        .from('worksheet_assignments')
+        .update({
+          responses: content,
           status,
-          updated_at: new Date().toISOString()
+          completed_at: status === 'completed' ? new Date().toISOString() : null
         })
-        .eq('id', worksheetId)
+        .eq('id', assignmentId)
 
       if (error) throw error
 
       // Update local state
-      setWorksheets(prev => prev.map(w => 
-        w.id === worksheetId ? { ...w, content, status: status as any } : w
+      setWorksheets(prev => prev.map(w =>
+        w.id === assignmentId
+          ? { ...w, content, responses: content, status: status as any, completed_at: status === 'completed' ? new Date().toISOString() : w.completed_at }
+          : w
       ))
     } catch (error) {
       console.error('Error updating worksheet:', error)
