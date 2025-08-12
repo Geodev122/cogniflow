@@ -2,66 +2,53 @@ import { supabase } from './supabase'
 
 export interface GamifiedApp {
   id: string
-  app_type: 'assessment' | 'worksheet' | 'exercise' | 'intake' | 'psychoeducation'
   name: string
   description: string
-  version: string
-  app_config: any
-  game_mechanics: any
+  category: string
   difficulty_level: 'beginner' | 'intermediate' | 'advanced'
   estimated_duration: number
   is_active: boolean
-  evidence_based: boolean
-  tags: string[]
-  created_by: string | null
+  avg_completion_rate: number
+  total_plays: number
+  difficulty_weight: number
   created_at: string
   updated_at: string
-}
-
-export interface AppSession {
-  id: string
-  app_id: string
-  user_id: string
-  session_type: 'play' | 'assessment' | 'practice' | 'review'
-  started_at: string
-  completed_at?: string
-  duration_seconds?: number
-  score: number
-  max_score: number
-  responses: any
-  game_data: any
-  completion_status: 'in_progress' | 'completed' | 'abandoned'
-  created_at: string
 }
 
 export interface AppProgress {
-  id: string
-  app_id: string
   user_id: string
-  total_sessions: number
-  total_time_minutes: number
+  app_id: string
   best_score: number
-  average_score: number
-  current_level: number
-  experience_points: number
-  achievements: any[]
-  streak_days: number
+  total_sessions: number
+  total_time_spent: number
   last_played_at?: string
-  mastery_level: 'novice' | 'beginner' | 'intermediate' | 'advanced' | 'expert'
-  created_at: string
-  updated_at: string
+  experience_points: number
+  completed_count: number
+  current_level: number
+  progress_percentage: number
+}
+
+export interface AppInteraction {
+  id: string
+  user_id: string
+  app_id: string
+  interaction_type: 'START' | 'COMPLETE' | 'QUIT' | 'REVIEW'
+  interaction_timestamp: string
+  session_duration?: number
+  performance_score?: number
+  additional_metadata?: any
 }
 
 // App Management Functions
-export const getGamifiedApps = async (appType?: string) => {
+export const getGamifiedApps = async (category?: string) => {
   let query = supabase
-    .from('gamified_apps')
+    .from('gamification.gamified_apps')
     .select('*')
     .eq('is_active', true)
     .order('created_at', { ascending: false })
 
-  if (appType) {
-    query = query.eq('app_type', appType)
+  if (category) {
+    query = query.eq('category', category)
   }
 
   const { data, error } = await query
@@ -69,36 +56,67 @@ export const getGamifiedApps = async (appType?: string) => {
   return data as GamifiedApp[]
 }
 
-export const startAppSession = async (appId: string, userId: string, sessionType: string = 'play') => {
-  const { data, error } = await supabase.rpc('start_app_session', {
-    p_app_id: appId,
-    p_user_id: userId,
-    p_session_type: sessionType
-  })
-  
+export const startAppSession = async (appId: string, userId: string) => {
+  const { data, error } = await supabase
+    .from('gamification.user_app_interactions')
+    .insert({
+      user_id: userId,
+      app_id: appId,
+      interaction_type: 'START'
+    })
+    .select('id')
+    .single()
+
   if (error) throw error
-  return data as string // session_id
+  return data.id
 }
 
 export const completeAppSession = async (
-  sessionId: string, 
-  score: number = 0, 
-  responses: any = {}, 
-  gameData: any = {}
+  appId: string,
+  userId: string,
+  sessionDuration: number,
+  performanceScore: number,
+  metadata: any = {}
 ) => {
-  const { error } = await supabase.rpc('complete_app_session', {
-    p_session_id: sessionId,
-    p_score: score,
-    p_responses: responses,
-    p_game_data: gameData
-  })
-  
-  if (error) throw error
+  // Record completion interaction
+  const { error: interactionError } = await supabase
+    .from('gamification.user_app_interactions')
+    .insert({
+      user_id: userId,
+      app_id: appId,
+      interaction_type: 'COMPLETE',
+      session_duration: sessionDuration,
+      performance_score: performanceScore,
+      additional_metadata: metadata
+    })
+
+  if (interactionError) throw interactionError
+
+  // Update or create progress record
+  const { error: progressError } = await supabase
+    .from('gamification.user_app_progress')
+    .upsert({
+      user_id: userId,
+      app_id: appId,
+      best_score: performanceScore,
+      total_sessions: 1,
+      total_time_spent: sessionDuration,
+      last_played_at: new Date().toISOString(),
+      experience_points: Math.round(performanceScore * 10),
+      completed_count: 1,
+      current_level: 1,
+      progress_percentage: 100
+    }, {
+      onConflict: 'user_id,app_id',
+      ignoreDuplicates: false
+    })
+
+  if (progressError) throw progressError
 }
 
 export const getUserAppProgress = async (userId: string, appId?: string) => {
   let query = supabase
-    .from('app_progress')
+    .from('gamification.user_app_progress')
     .select('*')
     .eq('user_id', userId)
 
@@ -111,18 +129,9 @@ export const getUserAppProgress = async (userId: string, appId?: string) => {
   return data as AppProgress[]
 }
 
-export const getAppRecommendations = async (userId: string) => {
-  const { data, error } = await supabase.rpc('get_app_recommendations', {
-    p_user_id: userId
-  })
-  
-  if (error) throw error
-  return data
-}
-
-export const getAppLeaderboard = async (appId: string, limit: number = 10) => {
-  const { data, error } = await supabase.rpc('get_app_leaderboard', {
-    p_app_id: appId,
+export const getAppRecommendations = async (userId: string, limit: number = 10) => {
+  const { data, error } = await supabase.rpc('gamification.get_app_recommendations', {
+    p_user_id: userId,
     p_limit: limit
   })
   
@@ -130,24 +139,52 @@ export const getAppLeaderboard = async (appId: string, limit: number = 10) => {
   return data
 }
 
-export const logAppEvent = async (
-  sessionId: string,
-  eventType: string,
-  eventData: any = {},
+export const getAppLeaderboard = async (appId: string, limit: number = 10, offset: number = 0) => {
+  const { data, error } = await supabase.rpc('gamification.get_app_leaderboard', {
+    p_app_id: appId,
+    p_limit: limit,
+    p_offset: offset
+  })
+  
+  if (error) throw error
+  return data
+}
+
+export const logAppInteraction = async (
   userId: string,
-  appId: string
+  appId: string,
+  interactionType: 'START' | 'COMPLETE' | 'QUIT' | 'REVIEW',
+  sessionDuration?: number,
+  performanceScore?: number,
+  metadata: any = {}
 ) => {
   const { error } = await supabase
-    .from('app_analytics')
+    .from('gamification.user_app_interactions')
     .insert({
-      session_id: sessionId,
-      event_type: eventType,
-      event_data: eventData,
       user_id: userId,
-      app_id: appId
+      app_id: appId,
+      interaction_type: interactionType,
+      session_duration: sessionDuration,
+      performance_score: performanceScore,
+      additional_metadata: metadata
     })
   
   if (error) throw error
+}
+
+export const getUserInteractions = async (userId: string, appId?: string) => {
+  let query = supabase
+    .from('gamification.user_app_interactions')
+    .select('*')
+    .eq('user_id', userId)
+
+  if (appId) {
+    query = query.eq('app_id', appId)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data as AppInteraction[]
 }
 
 // Gamification Helper Functions

@@ -84,7 +84,6 @@ export const AssessmentTools: React.FC = () => {
     const { data, error } = await supabase
       .from('assessment_library')
       .select('*')
-      .eq('is_active', true)
       .order('category', { ascending: true })
 
     if (error) throw error

@@ -282,38 +282,154 @@ export type Database = {
           id?: string
           appointment_id?: string | null
           therapist_id?: string | null
-          progress_notes?: string | null
+          id: number
           created_at?: string
         }
         Update: {
           id?: string
-          appointment_id?: string | null
+          questions: any
           therapist_id?: string | null
           progress_notes?: string | null
-          created_at?: string
         }
+          updated_at: string
       },
       document_uploads: {
+          id?: number
         Row: {
           id: string
           session_id: string | null
-          therapist_id: string | null
-          file_url: string
+          description?: string | null
+          questions: any
           created_at: string
+        }
+          id?: string
+          updated_at?: string
+          session_id?: string | null
+          therapist_id?: string | null
+          id?: number
+          file_url: string
+          created_at?: string
+        }
+          description?: string | null
+          questions?: any
+          session_id?: string | null
+          therapist_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      gamified_apps: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          category: string
+          difficulty_level: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | null
+          estimated_duration: number | null
+          is_active: boolean
+          created_at: string
+          updated_at: string
+          avg_completion_rate: number
+          total_plays: number
+          difficulty_weight: number
         }
         Insert: {
           id?: string
-          session_id?: string | null
-          therapist_id?: string | null
-          file_url: string
+          name: string
+          description?: string | null
+          category: string
+          difficulty_level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | null
+          estimated_duration?: number | null
+          is_active?: boolean
           created_at?: string
+          updated_at?: string
+          avg_completion_rate?: number
+          total_plays?: number
+          difficulty_weight?: number
         }
         Update: {
           id?: string
-          session_id?: string | null
-          therapist_id?: string | null
-          file_url?: string
+          name?: string
+          description?: string | null
+          category?: string
+          difficulty_level?: 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | null
+          estimated_duration?: number | null
+          is_active?: boolean
           created_at?: string
+          updated_at?: string
+          avg_completion_rate?: number
+          total_plays?: number
+          difficulty_weight?: number
+        }
+      }
+      user_app_progress: {
+        Row: {
+          user_id: string
+          app_id: string
+          best_score: number
+          total_sessions: number
+          total_time_spent: number
+          last_played_at: string | null
+          experience_points: number
+          completed_count: number
+          current_level: number
+          progress_percentage: number
+        }
+        Insert: {
+          user_id: string
+          app_id: string
+          best_score?: number
+          total_sessions?: number
+          total_time_spent?: number
+          last_played_at?: string | null
+          experience_points?: number
+          completed_count?: number
+          current_level?: number
+          progress_percentage?: number
+        }
+        Update: {
+          user_id?: string
+          app_id?: string
+          best_score?: number
+          total_sessions?: number
+          total_time_spent?: number
+          last_played_at?: string | null
+          experience_points?: number
+          completed_count?: number
+          current_level?: number
+          progress_percentage?: number
+        }
+      }
+      user_app_interactions: {
+        Row: {
+          id: string
+          user_id: string
+          app_id: string
+          interaction_type: 'START' | 'COMPLETE' | 'QUIT' | 'REVIEW'
+          interaction_timestamp: string
+          session_duration: number | null
+          performance_score: number | null
+          additional_metadata: any | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          app_id: string
+          interaction_type: 'START' | 'COMPLETE' | 'QUIT' | 'REVIEW'
+          interaction_timestamp?: string
+          session_duration?: number | null
+          performance_score?: number | null
+          additional_metadata?: any | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          app_id?: string
+          interaction_type?: 'START' | 'COMPLETE' | 'QUIT' | 'REVIEW'
+          interaction_timestamp?: string
+          session_duration?: number | null
+          performance_score?: number | null
+          additional_metadata?: any | null
         }
       }
     }
