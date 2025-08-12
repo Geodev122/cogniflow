@@ -1,22 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { 
-  Timeline, 
-  Plus, 
-  Calendar, 
-  TrendingUp, 
-  Clock, 
-  CheckCircle,
-  AlertTriangle,
-  BarChart3,
-  MessageSquare,
-  Target,
-  Activity,
-  Send,
-  Eye,
-  Filter
-} from 'lucide-react'
+import { Baseline as Timeline, Plus, Calendar, TrendingUp, Clock, CheckCircle, AlertTriangle, BarChart3, MessageSquare, Target, Activity, Send, Eye, Filter } from 'lucide-react'
 
 interface InBetweenSessionsProps {
   caseFile: any
