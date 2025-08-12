@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { AssessmentTools } from './AssessmentTools'
+import { WorksheetManagement } from './WorksheetManagement'
 import { 
   Library, 
   ClipboardList, 
@@ -18,7 +20,8 @@ import {
   Users,
   Target,
   Award,
-  Lightbulb
+  Lightbulb,
+  Gamepad2
 } from 'lucide-react'
 
 interface Resource {
@@ -163,7 +166,7 @@ const MOCK_RESOURCES: Resource[] = [
 ]
 
 export const ResourceLibrary: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'all' | 'assessments' | 'treatments' | 'worksheets' | 'education'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'assessments' | 'treatments' | 'worksheets' | 'psychoeducation' | 'exercises'>('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [difficultyFilter, setDifficultyFilter] = useState('all')
@@ -176,7 +179,7 @@ export const ResourceLibrary: React.FC = () => {
       (activeTab === 'assessments' && resource.type === 'assessment') ||
       (activeTab === 'treatments' && resource.type === 'treatment_plan') ||
       (activeTab === 'worksheets' && resource.type === 'worksheet') ||
-      (activeTab === 'education' && ['article', 'video', 'audio'].includes(resource.type))
+      (activeTab === 'psychoeducation' && ['article', 'video', 'audio'].includes(resource.type))
 
     const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          resource.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -256,9 +259,10 @@ export const ResourceLibrary: React.FC = () => {
           {[
             { id: 'all', name: 'All Resources', icon: Library },
             { id: 'assessments', name: 'Assessment Tools', icon: ClipboardList },
-            { id: 'treatments', name: 'Treatment Plans', icon: Brain },
             { id: 'worksheets', name: 'Worksheets', icon: FileText },
-            { id: 'education', name: 'Education', icon: GraduationCap }
+            { id: 'exercises', name: 'Exercises', icon: Gamepad2 },
+            { id: 'treatments', name: 'Treatment Plans', icon: Brain },
+            { id: 'psychoeducation', name: 'Psychoeducation', icon: GraduationCap }
           ].map((tab) => {
             const Icon = tab.icon
             return (
@@ -279,145 +283,174 @@ export const ResourceLibrary: React.FC = () => {
         </nav>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search resources..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+      {/* Tab Content */}
+      {activeTab === 'assessments' && (
+        <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+          <AssessmentTools />
+        </React.Suspense>
+      )}
+      
+      {activeTab === 'worksheets' && (
+        <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+          <WorksheetManagement />
+        </React.Suspense>
+      )}
+      
+      {activeTab === 'exercises' && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="text-center py-12 text-gray-500">
+            <Gamepad2 className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Therapeutic Exercises</h3>
+            <p className="text-gray-600">
+              Interactive therapeutic exercises and games coming soon.
+            </p>
           </div>
-          
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="all">All Categories</option>
-            <option value="Depression Screening">Depression Screening</option>
-            <option value="Anxiety Screening">Anxiety Screening</option>
-            <option value="Cognitive Restructuring">Cognitive Restructuring</option>
-            <option value="Educational">Educational</option>
-          </select>
-          
-          <select
-            value={difficultyFilter}
-            onChange={(e) => setDifficultyFilter(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="all">All Levels</option>
-            <option value="beginner">Beginner</option>
-            <option value="intermediate">Intermediate</option>
-            <option value="advanced">Advanced</option>
-          </select>
-          
-          <select
-            value={evidenceFilter}
-            onChange={(e) => setEvidenceFilter(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="all">All Types</option>
-            <option value="evidence-based">Evidence-Based</option>
-            <option value="clinical">Clinical Practice</option>
-          </select>
         </div>
-      </div>
-
-      {/* Resources Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredResources.map((resource) => (
-          <div key={resource.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <div className={`p-2 rounded-lg ${getTypeColor(resource.type)}`}>
-                  {getTypeIcon(resource.type)}
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900 text-sm">{resource.title}</h3>
-                  <p className="text-xs text-gray-600">{resource.category}</p>
-                </div>
+      )}
+      
+      {(activeTab === 'all' || activeTab === 'treatments' || activeTab === 'psychoeducation') && (
+        <>
+          {/* Filters */}
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search resources..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
-              {resource.evidenceBased && (
-                <div className="flex items-center space-x-1 text-green-600">
-                  <Award className="w-4 h-4" />
-                  <span className="text-xs">Evidence-Based</span>
-                </div>
-              )}
+              
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Categories</option>
+                <option value="Depression Screening">Depression Screening</option>
+                <option value="Anxiety Screening">Anxiety Screening</option>
+                <option value="Cognitive Restructuring">Cognitive Restructuring</option>
+                <option value="Educational">Educational</option>
+              </select>
+              
+              <select
+                value={difficultyFilter}
+                onChange={(e) => setDifficultyFilter(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Levels</option>
+                <option value="beginner">Beginner</option>
+                <option value="intermediate">Intermediate</option>
+                <option value="advanced">Advanced</option>
+              </select>
+              
+              <select
+                value={evidenceFilter}
+                onChange={(e) => setEvidenceFilter(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Types</option>
+                <option value="evidence-based">Evidence-Based</option>
+                <option value="clinical">Clinical Practice</option>
+              </select>
             </div>
-            
-            <p className="text-sm text-gray-600 mb-4 line-clamp-2">{resource.description}</p>
-            
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-4">
-                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(resource.difficulty)}`}>
-                  {resource.difficulty}
-                </span>
-                {resource.duration && (
-                  <div className="flex items-center space-x-1 text-gray-500">
-                    <Clock className="w-3 h-3" />
-                    <span className="text-xs">{resource.duration}</span>
+          </div>
+
+          {/* Resources Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredResources.map((resource) => (
+              <div key={resource.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <div className={`p-2 rounded-lg ${getTypeColor(resource.type)}`}>
+                      {getTypeIcon(resource.type)}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 text-sm">{resource.title}</h3>
+                      <p className="text-xs text-gray-600">{resource.category}</p>
+                    </div>
                   </div>
-                )}
+                  {resource.evidenceBased && (
+                    <div className="flex items-center space-x-1 text-green-600">
+                      <Award className="w-4 h-4" />
+                      <span className="text-xs">Evidence-Based</span>
+                    </div>
+                  )}
+                </div>
+                
+                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{resource.description}</p>
+                
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-4">
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(resource.difficulty)}`}>
+                      {resource.difficulty}
+                    </span>
+                    {resource.duration && (
+                      <div className="flex items-center space-x-1 text-gray-500">
+                        <Clock className="w-3 h-3" />
+                        <span className="text-xs">{resource.duration}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center space-x-1 text-gray-500">
+                    <Users className="w-3 h-3" />
+                    <span className="text-xs">{resource.usageCount}</span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between mb-4">
+                  {renderStarRating(resource.rating)}
+                </div>
+                
+                <div className="flex flex-wrap gap-1 mb-4">
+                  {resource.tags.slice(0, 3).map((tag, index) => (
+                    <span key={index} className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+                      {tag}
+                    </span>
+                  ))}
+                  {resource.tags.length > 3 && (
+                    <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
+                      +{resource.tags.length - 3}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setSelectedResource(resource)}
+                    className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Preview
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedResource(resource)
+                      setShowAssignModal(true)
+                    }}
+                    className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Send className="w-4 h-4 mr-1" />
+                    Assign
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center space-x-1 text-gray-500">
-                <Users className="w-3 h-3" />
-                <span className="text-xs">{resource.usageCount}</span>
-              </div>
-            </div>
-            
-            <div className="flex items-center justify-between mb-4">
-              {renderStarRating(resource.rating)}
-            </div>
-            
-            <div className="flex flex-wrap gap-1 mb-4">
-              {resource.tags.slice(0, 3).map((tag, index) => (
-                <span key={index} className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                  {tag}
-                </span>
-              ))}
-              {resource.tags.length > 3 && (
-                <span className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                  +{resource.tags.length - 3}
-                </span>
-              )}
-            </div>
-            
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setSelectedResource(resource)}
-                className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <Eye className="w-4 h-4 mr-1" />
-                Preview
-              </button>
-              <button
-                onClick={() => {
-                  setSelectedResource(resource)
-                  setShowAssignModal(true)
-                }}
-                className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Send className="w-4 h-4 mr-1" />
-                Assign
-              </button>
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {filteredResources.length === 0 && (
-        <div className="text-center py-12">
-          <Library className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No resources found</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Try adjusting your search terms or filters.
-          </p>
-        </div>
+          {filteredResources.length === 0 && (
+            <div className="text-center py-12">
+              <Library className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No resources found</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Try adjusting your search terms or filters.
+              </p>
+            </div>
+          )}
+        </>
       )}
 
       {/* Resource Preview Modal */}

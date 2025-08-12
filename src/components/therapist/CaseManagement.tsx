@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { CaseFormulation } from './CaseFormulation'
+import { InBetweenSessions } from './InBetweenSessions'
 import { 
   FileText, 
   User, 
@@ -23,7 +25,10 @@ import {
     MessageSquare,
     Send,
     PlayCircle,
-    PlusCircle
+    PlusCircle,
+    Stethoscope,
+    Timeline,
+    Archive
   } from 'lucide-react'
 
 interface Client {
@@ -386,8 +391,10 @@ export const CaseManagement: React.FC = () => {
           <nav className="-mb-px flex space-x-8">
             {[
               { id: 'overview', name: 'Overview', icon: FileText },
+              { id: 'formulation', name: 'Case Formulation', icon: Stethoscope },
               { id: 'goals', name: 'Goals & Treatment', icon: Target },
               { id: 'assignments', name: 'Assignments', icon: ClipboardList },
+              { id: 'between-sessions', name: 'Between Sessions', icon: Timeline },
               { id: 'progress', name: 'Progress Tracking', icon: TrendingUp },
               { id: 'notes', name: 'Case Notes', icon: MessageSquare }
             ].map((tab) => {
@@ -496,6 +503,13 @@ export const CaseManagement: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {activeTab === 'formulation' && (
+          <CaseFormulation 
+            caseFile={selectedCase}
+            onUpdate={fetchCaseFiles}
+          />
         )}
 
         {activeTab === 'goals' && (
@@ -636,6 +650,13 @@ export const CaseManagement: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === 'between-sessions' && (
+          <InBetweenSessions 
+            caseFile={selectedCase}
+            onUpdate={fetchCaseFiles}
+          />
         )}
 
         {activeTab === 'progress' && (

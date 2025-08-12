@@ -253,14 +253,11 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'overview', name: 'Overview', icon: Target },
     { id: 'clients', name: 'Client Management', icon: Users },
     { id: 'cases', name: 'Case Management', icon: FileText },
-    { id: 'assessments', name: 'Assessments', icon: ClipboardList },
-    { id: 'worksheets', name: 'Worksheets', icon: FileText },
-    { id: 'sessions', name: 'Session Management', icon: Calendar },
     { id: 'resources', name: 'Resource Library', icon: Library },
+    { id: 'sessions', name: 'Session Management', icon: Calendar },
     { id: 'communication', name: 'Communication', icon: MessageSquare },
     { id: 'documentation', name: 'Documentation', icon: FileText },
     { id: 'practice', name: 'Practice Management', icon: BarChart3 },
-    { id: 'profile', name: 'Profile', icon: User },
   ], [])
 
   if (profile && profile.role !== 'therapist') {
@@ -625,19 +622,7 @@ export const TherapistDashboard: React.FC = () => {
       case 'assessments':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <AssessmentTools />
-          </React.Suspense>
-        )
-      case 'resources':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <ResourceLibrary />
-          </React.Suspense>
-        )
-      case 'worksheets':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <WorksheetManagement />
           </React.Suspense>
         )
       case 'sessions':
@@ -663,28 +648,6 @@ export const TherapistDashboard: React.FC = () => {
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <PracticeManagement />
           </React.Suspense>
-        )
-      case 'profile':
-        if (profileLoading) {
-          return (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          )
-        }
-
-        if (profileError) {
-          return <div className="p-4 text-red-600">{profileError}</div>
-        }
-
-        return therapistProfile ? (
-          <TherapistProfile
-            therapist={therapistProfile}
-            isOwnProfile={true}
-            onEdit={() => setShowOnboardingModal(true)}
-          />
-        ) : (
-          <div className="p-4 text-gray-600">Profile not found</div>
         )
       default:
         return renderOverview()
