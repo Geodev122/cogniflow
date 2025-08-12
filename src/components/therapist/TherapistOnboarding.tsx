@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
-import { 
-  User, 
-  Award, 
+import {
+  User,
+  Award,
   BookOpen, 
   MapPin, 
   Shield, 
@@ -19,6 +19,8 @@ import {
   Phone,
   X
 } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 
 interface OnboardingData {
   // Step 1: Basic Info
@@ -102,6 +104,7 @@ export const TherapistOnboarding: React.FC<TherapistOnboardingProps> = ({ onComp
   const [currentStep, setCurrentStep] = useState(1)
   const [showConfirmation, setShowConfirmation] = useState(false)
   const [profileCompletion, setProfileCompletion] = useState(0)
+  const { profile } = useAuth()
   const [formData, setFormData] = useState<OnboardingData>({
     fullName: '',
     profilePicture: null,
@@ -258,8 +261,27 @@ export const TherapistOnboarding: React.FC<TherapistOnboardingProps> = ({ onComp
     setCurrentStep(prev => Math.max(prev - 1, 1))
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!profile) return
     if (validateStep(6)) {
+      const professionalDetails = {
+        specializations: formData.specializations,
+        languages: formData.languages,
+        qualifications: formData.qualifications,
+        bio: formData.bio,
+        practice_locations: formData.practiceLocations,
+        licenses: formData.licenses
+      }
+
+      await supabase.from('profiles').upsert({
+        id: profile.id,
+        whatsapp_number: formData.whatsappNumber,
+        professional_details: professionalDetails,
+        verification_status: 'pending'
+      })
+
+      const { data: completion } = await supabase.rpc('profile_completion', { id: profile.id })
+      setProfileCompletion(completion || 0)
       setShowConfirmation(true)
     }
   }

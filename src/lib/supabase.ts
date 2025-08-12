@@ -43,6 +43,8 @@ export type Database = {
           whatsapp_number: string | null
           password_set: boolean
           created_by_therapist: string | null
+          professional_details: any | null
+          verification_status: string | null
           created_at: string
         }
         Insert: {
@@ -55,6 +57,8 @@ export type Database = {
           whatsapp_number?: string | null
           password_set?: boolean
           created_by_therapist?: string | null
+          professional_details?: any | null
+          verification_status?: string | null
           created_at?: string
         }
         Update: {
@@ -67,6 +71,8 @@ export type Database = {
           whatsapp_number?: string | null
           password_set?: boolean
           created_by_therapist?: string | null
+          professional_details?: any | null
+          verification_status?: string | null
           created_at?: string
         }
       }

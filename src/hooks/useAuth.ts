@@ -8,6 +8,9 @@ interface Profile {
   first_name: string
   last_name: string
   email: string
+  whatsapp_number?: string | null
+  professional_details?: any | null
+  verification_status?: string | null
 }
 
 export const useAuth = () => {
@@ -48,7 +51,10 @@ export const useAuth = () => {
           role: (user.user_metadata?.role || 'client') as 'therapist' | 'client',
           first_name: user.user_metadata?.first_name || 'User',
           last_name: user.user_metadata?.last_name || '',
-          email: user.email || ''
+          email: user.email || '',
+          whatsapp_number: null,
+          professional_details: null,
+          verification_status: null
         }
         console.log('Using fallback profile from auth metadata (profile missing in database):', fallbackProfile)
         setProfile(fallbackProfile)
