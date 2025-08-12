@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { Layout } from '../components/Layout'
 import { TherapistOnboarding } from '../components/therapist/TherapistOnboarding'
-import { TherapistProfile } from '../components/therapist/TherapistProfile'
+import { TherapistProfile, TherapistProfileData } from '../components/therapist/TherapistProfile'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { 
@@ -58,6 +58,9 @@ export const TherapistDashboard: React.FC = () => {
   })
   const [loading, setLoading] = useState(true)
   const [profileCompletion, setProfileCompletion] = useState(0)
+  const [therapistProfile, setTherapistProfile] = useState<TherapistProfileData | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState<string | null>(null)
   const { profile } = useAuth()
 
   useEffect(() => {
@@ -65,6 +68,14 @@ export const TherapistDashboard: React.FC = () => {
       fetchDashboardStats()
       supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
         setProfileCompletion(data || 0)
+      })
+      supabase.rpc('get_therapist_profile', { id: profile.id }).then(({ data, error }) => {
+        if (error) {
+          setProfileError(error.message)
+        } else {
+          setTherapistProfile(data as TherapistProfileData)
+        }
+        setProfileLoading(false)
       })
     }
   }, [profile])
@@ -484,30 +495,6 @@ export const TherapistDashboard: React.FC = () => {
     </div>
   )
 
-  // TODO: Replace mockTherapist with actual data from the database
-  const mockTherapist = {
-    id: profile?.id || '',
-    fullName: `${profile?.first_name} ${profile?.last_name}`,
-    profilePicture: '',
-    whatsappNumber: '123-456-7890',
-    email: profile?.email || '',
-    specializations: ['Cognitive Behavioral Therapy (CBT)', 'Mindfulness-Based Cognitive Therapy (MBCT)'],
-    languages: ['English', 'Spanish'],
-    qualifications: 'Licensed Professional Counselor (LPC)',
-    bio: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-    introVideo: '',
-    practiceLocations: [{ address: '123 Main St, Anytown USA', isPrimary: true }],
-    verificationStatus: 'verified',
-    membershipStatus: 'active',
-    joinDate: '2023-01-01',
-    stats: {
-      totalClients: 10,
-      yearsExperience: 5,
-      rating: 4.8,
-      reviewCount: 25,
-      responseTime: '24 hours',
-    },
-  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -562,9 +549,19 @@ export const TherapistDashboard: React.FC = () => {
           </React.Suspense>
         )
       case 'profile':
+        if (profileLoading) {
+          return (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          )
+        }
+        if (profileError || !therapistProfile) {
+          return <div className="text-center text-red-500 py-8">Error loading profile</div>
+        }
         return (
           <TherapistProfile
-            therapist={mockTherapist}
+            therapist={therapistProfile}
             isOwnProfile={true}
             onEdit={() => setShowOnboardingModal(true)}
           />

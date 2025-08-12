@@ -22,7 +22,7 @@ import {
   Clock
 } from 'lucide-react'
 
-interface TherapistProfileData {
+export interface TherapistProfileData {
   // Basic Info
   id: string
   fullName: string
