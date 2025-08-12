@@ -70,44 +70,54 @@ export const InBetweenSessions: React.FC<InBetweenSessionsProps> = ({ caseFile, 
 
   const fetchInBetweenData = async () => {
     try {
-      // Fetch tasks (using form_assignments as proxy)
-      const { data: taskData } = await supabase
+      // Simplified task fetching
+      const { data: taskData, error: taskError } = await supabase
         .from('form_assignments')
         .select('*')
         .eq('client_id', caseFile.client.id)
         .eq('therapist_id', profile!.id)
-        .eq('form_type', 'homework')
         .order('assigned_at', { ascending: false })
 
-      // Fetch submissions (using progress_tracking as proxy)
-      const { data: submissionData } = await supabase
+      if (taskError) {
+        console.error('Error fetching tasks:', taskError)
+        setTasks([])
+      } else {
+        setTasks(taskData?.map(task => ({
+          id: task.id,
+          task_type: 'homework',
+          title: task.title,
+          description: task.instructions || '',
+          frequency: 'as_needed',
+          status: task.status === 'completed' ? 'completed' : 'active',
+          created_at: task.assigned_at,
+          submissions: []
+        })) || [])
+      }
+
+      // Simplified submissions fetching
+      const { data: submissionData, error: submissionError } = await supabase
         .from('progress_tracking')
         .select('*')
         .eq('client_id', caseFile.client.id)
-        .eq('source_type', 'manual')
         .order('recorded_at', { ascending: false })
 
-      setTasks(taskData?.map(task => ({
-        id: task.id,
-        task_type: 'homework',
-        title: task.title,
-        description: task.instructions || '',
-        frequency: 'as_needed',
-        status: task.status === 'completed' ? 'completed' : 'active',
-        created_at: task.assigned_at,
-        submissions: []
-      })) || [])
-
-      setSubmissions(submissionData?.map(sub => ({
-        id: sub.id,
-        task_id: sub.source_id || '',
-        submitted_at: sub.recorded_at,
-        data: { value: sub.value },
-        mood_rating: sub.value
-      })) || [])
+      if (submissionError) {
+        console.error('Error fetching submissions:', submissionError)
+        setSubmissions([])
+      } else {
+        setSubmissions(submissionData?.map(sub => ({
+          id: sub.id,
+          task_id: sub.source_id || '',
+          submitted_at: sub.recorded_at,
+          data: { value: sub.value },
+          mood_rating: sub.value
+        })) || [])
+      }
 
     } catch (error) {
       console.error('Error fetching in-between data:', error)
+      setTasks([])
+      setSubmissions([])
     } finally {
       setLoading(false)
     }

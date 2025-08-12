@@ -238,7 +238,7 @@ export default function ClientDashboard() {
                       <p className="text-sm font-medium text-gray-900">{item.title}</p>
                       <p className="text-xs text-gray-500">{formatDate(item.created_at)}</p>
                     </div>
-                        {formatDate(item.assigned_at)}
+                  </div>
                 )) : (
                 <div className="text-center py-8">
                   <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />

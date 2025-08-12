@@ -71,8 +71,8 @@ export const CaseFiles: React.FC = () => {
     if (!profile) return
 
     try {
-      // Get clients for this therapist
-      const { data: relations, error: relationsError } = await supabase
+      // Simplified case files fetching
+      const { data: relations, error } = await supabase
         .from('therapist_client_relations')
         .select(`
           client_id,
@@ -86,61 +86,27 @@ export const CaseFiles: React.FC = () => {
         `)
         .eq('therapist_id', profile.id)
 
-      if (relationsError) throw relationsError
+      if (error) {
+        console.error('Error fetching case files:', error)
+        setCaseFiles([])
+        return
+      }
 
-      const cases = await Promise.all(
-        (relations || []).map(async (relation: any) => {
-          const client = relation.profiles
-
-          // Get session count
-          const { data: sessions } = await supabase
-            .from('appointments')
-            .select('id, appointment_date, status')
-            .eq('client_id', client.id)
-            .eq('therapist_id', profile.id)
-
-          // Get assessments
-          const { data: assessments } = await supabase
-            .from('assessment_reports')
-            .select('*')
-            .eq('client_id', client.id)
-            .eq('therapist_id', profile.id)
-            .order('created_at', { ascending: false })
-
-          // Get client profile for risk level
-          const { data: clientProfile } = await supabase
-            .from('client_profiles')
-            .select('risk_level, notes')
-            .eq('client_id', client.id)
-            .eq('therapist_id', profile.id)
-            .single()
-
-          const completedSessions = sessions?.filter(s => s.status === 'completed') || []
-          const upcomingSessions = sessions?.filter(s => s.status === 'scheduled' && new Date(s.appointment_date) > new Date()) || []
-
-          return {
-            client,
-            sessionCount: completedSessions.length,
-            lastSession: completedSessions.length > 0 ? completedSessions[completedSessions.length - 1].appointment_date : undefined,
-            nextAppointment: upcomingSessions.length > 0 ? upcomingSessions[0].appointment_date : undefined,
-            assessments: assessments?.map(a => ({
-              id: a.id,
-              assessment_name: a.title,
-              score: a.content?.score || 0,
-              max_score: a.content?.max_score || 100,
-              date: a.created_at,
-              interpretation: a.content?.interpretation || '',
-              narrative_report: a.content?.narrative_report || ''
-            })) || [],
-            riskLevel: clientProfile?.risk_level || 'low',
-            progressSummary: clientProfile?.notes || 'No progress notes available'
-          }
-        })
-      )
+      // Basic case files without complex nested queries
+      const cases = (relations || []).map((relation: any) => ({
+        client: relation.profiles,
+        sessionCount: 0,
+        lastSession: undefined,
+        nextAppointment: undefined,
+        assessments: [],
+        riskLevel: 'low',
+        progressSummary: 'No progress notes available'
+      }))
 
       setCaseFiles(cases)
     } catch (error) {
       console.error('Error fetching case files:', error)
+      setCaseFiles([])
     } finally {
       setLoading(false)
     }

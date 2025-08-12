@@ -81,62 +81,90 @@ export const AssessmentTools: React.FC = () => {
   }
 
   const fetchAssessmentLibrary = async () => {
-    const { data, error } = await supabase
-      .from('assessment_library')
-      .select('*')
-      .order('category', { ascending: true })
+    try {
+      const { data, error } = await supabase
+        .from('assessment_library')
+        .select('*')
+        .order('category', { ascending: true })
 
-    if (error) throw error
-    setAssessmentLibrary(data || [])
+      if (error) {
+        console.error('Error fetching assessment library:', error)
+        setAssessmentLibrary([])
+        return
+      }
+      
+      setAssessmentLibrary(data || [])
+    } catch (error) {
+      console.error('Error in fetchAssessmentLibrary:', error)
+      setAssessmentLibrary([])
+    }
   }
 
   const fetchAssignedAssessments = async () => {
     if (!profile) return
 
-    const { data, error } = await supabase
-      .from('form_assignments')
-      .select(`
-        *,
-        profiles!form_assignments_client_id_fkey (
-          first_name,
-          last_name,
-          email
-        )
-      `)
-      .eq('therapist_id', profile.id)
-      .eq('form_type', 'psychometric')
-      .order('assigned_at', { ascending: false })
+    try {
+      const { data, error } = await supabase
+        .from('form_assignments')
+        .select(`
+          *,
+          profiles!form_assignments_client_id_fkey (
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .eq('therapist_id', profile.id)
+        .eq('form_type', 'psychometric')
+        .order('assigned_at', { ascending: false })
 
-    if (error) throw error
+      if (error) {
+        console.error('Error fetching assigned assessments:', error)
+        setAssignedAssessments([])
+        return
+      }
 
-    const assignmentsWithClient = data?.map(assignment => ({
-      ...assignment,
-      client: assignment.profiles
-    })) || []
+      const assignmentsWithClient = data?.map(assignment => ({
+        ...assignment,
+        client: assignment.profiles
+      })) || []
 
-    setAssignedAssessments(assignmentsWithClient)
+      setAssignedAssessments(assignmentsWithClient)
+    } catch (error) {
+      console.error('Error in fetchAssignedAssessments:', error)
+      setAssignedAssessments([])
+    }
   }
 
   const fetchClients = async () => {
     if (!profile?.id) return
 
-    const { data, error } = await supabase
-      .from('therapist_client_relations')
-      .select(`
-        client_id,
-        profiles!therapist_client_relations_client_id_fkey (
-          id,
-          first_name,
-          last_name,
-          email
-        )
-      `)
-      .eq('therapist_id', profile.id)
+    try {
+      const { data, error } = await supabase
+        .from('therapist_client_relations')
+        .select(`
+          client_id,
+          profiles!therapist_client_relations_client_id_fkey (
+            id,
+            first_name,
+            last_name,
+            email
+          )
+        `)
+        .eq('therapist_id', profile.id)
 
-    if (error) throw error
+      if (error) {
+        console.error('Error fetching clients:', error)
+        setClients([])
+        return
+      }
 
-    const clientList = data?.map(relation => relation.profiles).filter(Boolean) || []
-    setClients(clientList)
+      const clientList = data?.map(relation => relation.profiles).filter(Boolean) || []
+      setClients(clientList)
+    } catch (error) {
+      console.error('Error in fetchClients:', error)
+      setClients([])
+    }
   }
 
   const assignAssessment = async (assessmentId: string, clientIds: string[], dueDate: string, instructions: string) => {

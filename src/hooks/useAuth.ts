@@ -31,15 +31,18 @@ export const useAuth = () => {
       
       if (profileError) {
         console.error('Profile fetch error:', profileError)
-        throw profileError
+        // Don't throw error, just set null profile
+        setProfile(null)
+        setError('Profile not found')
+        return
       }
       
       setProfile(profileData)
       setError(null)
     } catch (error) {
       console.error('Error fetching profile:', error)
-      setError('Failed to load profile')
       setProfile(null)
+      setError('Failed to load profile')
     }
   }, [])
 
