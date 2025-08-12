@@ -232,6 +232,62 @@ export type Database = {
           recorded_at?: string
         }
       }
+      therapist_locations: {
+        Row: {
+          id: string
+          therapist_id: string
+          address: string
+          is_primary: boolean
+          created_at: string
+        }
+        Insert: {
+          therapist_id: string
+          address: string
+          is_primary?: boolean
+          created_at?: string
+        }
+        Update: {
+          therapist_id?: string
+          address?: string
+          is_primary?: boolean
+          created_at?: string
+        }
+      },
+      therapist_stats: {
+        Row: {
+          therapist_id: string
+          total_clients: number
+          years_experience: number
+          rating: number
+          review_count: number
+          response_time: string
+          created_at: string
+        }
+        Insert: {
+          therapist_id: string
+          total_clients?: number
+          years_experience?: number
+          rating?: number
+          review_count?: number
+          response_time?: string
+          created_at?: string
+        }
+        Update: {
+          therapist_id?: string
+          total_clients?: number
+          years_experience?: number
+          rating?: number
+          review_count?: number
+          response_time?: string
+          created_at?: string
+        }
+      }
+    },
+    Functions: {
+      get_therapist_profile: {
+        Args: { id: string }
+        Returns: any
+      }
     }
   }
 }
