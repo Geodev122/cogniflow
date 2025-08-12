@@ -258,10 +258,10 @@ export const ResourceLibrary: React.FC = () => {
         <nav className="-mb-px flex space-x-8">
           {[
             { id: 'all', name: 'All Resources', icon: Library },
-            { id: 'assessments', name: 'Assessment Tools', icon: ClipboardList },
+            { id: 'assessments', name: 'Assessments', icon: ClipboardList },
             { id: 'worksheets', name: 'Worksheets', icon: FileText },
             { id: 'exercises', name: 'Exercises', icon: Gamepad2 },
-            { id: 'treatments', name: 'Treatment Plans', icon: Brain },
+            { id: 'treatments', name: 'Treatments', icon: Brain },
             { id: 'psychoeducation', name: 'Psychoeducation', icon: GraduationCap }
           ].map((tab) => {
             const Icon = tab.icon
@@ -285,15 +285,11 @@ export const ResourceLibrary: React.FC = () => {
 
       {/* Tab Content */}
       {activeTab === 'assessments' && (
-        <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-          <AssessmentTools />
-        </React.Suspense>
+        <AssessmentTools />
       )}
       
       {activeTab === 'worksheets' && (
-        <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-          <WorksheetManagement />
-        </React.Suspense>
+        <WorksheetManagement />
       )}
       
       {activeTab === 'exercises' && (
@@ -334,6 +330,10 @@ export const ResourceLibrary: React.FC = () => {
                 <option value="Anxiety Screening">Anxiety Screening</option>
                 <option value="Cognitive Restructuring">Cognitive Restructuring</option>
                 <option value="Educational">Educational</option>
+                <option value="Depression Treatment">Depression Treatment</option>
+                <option value="Anxiety Treatment">Anxiety Treatment</option>
+                <option value="Mood Monitoring">Mood Monitoring</option>
+                <option value="Mindfulness">Mindfulness</option>
               </select>
               
               <select

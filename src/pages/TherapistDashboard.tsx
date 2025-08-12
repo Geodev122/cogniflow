@@ -83,6 +83,7 @@ interface TherapistProfileData {
 export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showOnboardingModal, setShowOnboardingModal] = useState(false)
   const [stats, setStats] = useState<DashboardStats>({
     totalClients: 0,
@@ -658,7 +659,7 @@ export const TherapistDashboard: React.FC = () => {
             <CaseManagement />
           </React.Suspense>
         )
-      case 'assessments':
+      case 'resources':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <ResourceLibrary />
@@ -688,63 +689,82 @@ export const TherapistDashboard: React.FC = () => {
             <PracticeManagement />
           </React.Suspense>
         )
-      default:
-        return renderOverview()
-    }
-  }
+      <div className="flex h-screen bg-gray-50">
+        {/* Sidebar - Desktop */}
+        <div className={`hidden md:flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ${
+          sidebarCollapsed ? 'w-16' : 'w-64'
+        }`}>
+          {/* Sidebar Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            {!sidebarCollapsed && (
+              <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
+            )}
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              {sidebarCollapsed ? (
+                <ChevronRight className="w-5 h-5 text-gray-500" />
+              ) : (
+                <Menu className="w-5 h-5 text-gray-500" />
+              )}
+            </button>
+          </div>
 
-  if (loading) {
-    return (
-      <Layout title="Therapist Dashboard">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    )
-  }
-
-  return (
-    <Layout title="Therapist Dashboard">
-      <div className="space-y-6">
-        {/* Mobile Menu Button */}
-        <div className="sm:hidden flex items-center justify-end">
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
-        </div>
-
-        {/* Navigation Tabs - Desktop */}
-        <div className="hidden sm:block border-b border-gray-200">
-          <nav className="-mb-px flex space-x-4 lg:space-x-8 overflow-x-auto">
+          {/* Sidebar Navigation */}
+          <nav className="flex-1 p-4 space-y-2">
             {tabs.map((tab) => {
               const Icon = tab.icon
+              const isActive = activeTab === tab.id
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-1 sm:space-x-2 py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all ${
+                    isActive
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                   }`}
+                  title={sidebarCollapsed ? tab.name : undefined}
                 >
-                  <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span>{tab.name}</span>
+                  <Icon className={`w-5 h-5 flex-shrink-0 ${
+                    isActive ? 'text-blue-600' : 'text-gray-400'
+                  }`} />
+                  {!sidebarCollapsed && (
+                    <span className="font-medium text-sm">{tab.name}</span>
+                  )}
                 </button>
               )
             })}
           </nav>
         </div>
 
-        {/* Mobile Navigation Menu */}
+        {/* Mobile Menu Button */}
+        <div className="md:hidden fixed top-4 left-4 z-50">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-lg bg-white shadow-lg border border-gray-200 text-gray-600 hover:text-gray-900"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+
+        {/* Mobile Navigation Overlay */}
         {mobileMenuOpen && (
-          <div className="sm:hidden bg-white border border-gray-200 rounded-lg shadow-lg">
-            <div className="p-4">
-              <div className="grid grid-cols-2 gap-3">
-                {tabs.slice(0, 8).map((tab) => {
+          <div className="md:hidden fixed inset-0 z-40">
+            <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setMobileMenuOpen(false)} />
+            <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-xl">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              <nav className="p-4 space-y-2">
+                {tabs.map((tab) => {
                   const Icon = tab.icon
                   const isActive = activeTab === tab.id
                   return (
@@ -754,33 +774,30 @@ export const TherapistDashboard: React.FC = () => {
                         setActiveTab(tab.id)
                         setMobileMenuOpen(false)
                       }}
-                      className={`p-3 rounded-lg border-2 transition-all ${
+                      className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all ${
                         isActive
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                       }`}
                     >
-                      <Icon className={`w-5 h-5 mx-auto mb-1 ${
+                      <Icon className={`w-5 h-5 ${
                         isActive ? 'text-blue-600' : 'text-gray-400'
                       }`} />
-                      <span className={`text-xs font-medium block ${
-                        isActive ? 'text-blue-900' : 'text-gray-700'
-                      }`}>{tab.name.split(' ')[0]}</span>
+                      <span className="font-medium text-sm">{tab.name}</span>
                     </button>
                   )
                 })}
-              </div>
-              {tabs.length > 8 && (
-                <div className="mt-3 pt-3 border-t border-gray-200">
-                  <p className="text-xs text-gray-500 text-center">Swipe left to see more options on desktop</p>
-                </div>
-              )}
+              </nav>
             </div>
           </div>
         )}
 
-        {/* Tab Content */}
-        {renderTabContent()}
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-6">
+            {renderTabContent()}
+          </div>
+        </div>
       </div>
     </Layout>
   )
