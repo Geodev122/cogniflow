@@ -208,6 +208,7 @@ export const TherapistDashboard: React.FC = () => {
       // Ensure stats object exists with default values
       const profileData = data as TherapistProfileData
       if (profileData) {
+        // Ensure all required properties have default values
         profileData.stats = profileData.stats || {
           totalClients: 0,
           yearsExperience: 0,
@@ -215,6 +216,21 @@ export const TherapistDashboard: React.FC = () => {
           reviewCount: 0,
           responseTime: 'N/A'
         }
+        
+        // Ensure array properties are initialized
+        profileData.specializations = profileData.specializations || []
+        profileData.languages = profileData.languages || []
+        profileData.practiceLocations = profileData.practiceLocations || []
+        
+        // Ensure string properties are initialized
+        profileData.fullName = profileData.fullName || ''
+        profileData.whatsappNumber = profileData.whatsappNumber || ''
+        profileData.email = profileData.email || ''
+        profileData.qualifications = profileData.qualifications || ''
+        profileData.bio = profileData.bio || ''
+        profileData.joinDate = profileData.joinDate || ''
+        profileData.verificationStatus = profileData.verificationStatus || 'pending'
+        profileData.membershipStatus = profileData.membershipStatus || 'pending'
       }
       setTherapistProfile(profileData)
     }
