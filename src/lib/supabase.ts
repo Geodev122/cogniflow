@@ -205,6 +205,54 @@ export type Database = {
           last_played_at?: string | null
         }
       }
+      worksheets: {
+        Row: {
+          id: string
+          therapist_id: string
+          title: string
+          content: any
+          created_at: string
+        }
+        Insert: {
+          therapist_id: string
+          title: string
+          content?: any
+          created_at?: string
+        }
+        Update: {
+          therapist_id?: string
+          title?: string
+          content?: any
+          created_at?: string
+        }
+      }
+      worksheet_assignments: {
+        Row: {
+          id: string
+          worksheet_id: string
+          client_id: string
+          status: 'assigned' | 'in_progress' | 'completed'
+          responses: any
+          assigned_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          worksheet_id: string
+          client_id: string
+          status?: 'assigned' | 'in_progress' | 'completed'
+          responses?: any
+          assigned_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          worksheet_id?: string
+          client_id?: string
+          status?: 'assigned' | 'in_progress' | 'completed'
+          responses?: any
+          assigned_at?: string
+          completed_at?: string | null
+        }
+      }
       progress_tracking: {
         Row: {
           id: string

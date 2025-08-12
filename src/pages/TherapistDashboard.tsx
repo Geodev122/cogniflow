@@ -34,6 +34,7 @@ const DocumentationCompliance = React.lazy(() => import('../components/therapist
 const ResourceLibrary = React.lazy(() => import('../components/therapist/ResourceLibrary').then(m => ({ default: m.ResourceLibrary })))
 const PracticeManagement = React.lazy(() => import('../components/therapist/PracticeManagement').then(m => ({ default: m.PracticeManagement })))
 const AssessmentTools = React.lazy(() => import('../components/therapist/AssessmentTools').then(m => ({ default: m.AssessmentTools })))
+const WorksheetManagement = React.lazy(() => import('../components/therapist/WorksheetManagement').then(m => ({ default: m.WorksheetManagement })))
 
 interface DashboardStats {
   totalClients: number
@@ -128,6 +129,7 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'clients', name: 'Client Management', icon: Users },
     { id: 'cases', name: 'Case Management', icon: FileText },
     { id: 'assessments', name: 'Assessments', icon: ClipboardList },
+    { id: 'worksheets', name: 'Worksheets', icon: FileText },
     { id: 'sessions', name: 'Session Management', icon: Calendar },
     { id: 'resources', name: 'Resource Library', icon: Library },
     { id: 'communication', name: 'Communication', icon: MessageSquare },
@@ -535,6 +537,12 @@ export const TherapistDashboard: React.FC = () => {
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <ResourceLibrary />
+          </React.Suspense>
+        )
+      case 'worksheets':
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <WorksheetManagement />
           </React.Suspense>
         )
       case 'sessions':
