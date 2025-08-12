@@ -1,29 +1,6 @@
-/*
-  # Populate Assessment Library
-
-  1. New Data
-    - Add standardized psychometric assessments to the library
-    - PHQ-9, GAD-7, BDI-II with complete question sets
-    - Proper scoring methods and interpretation guides
-
-  2. Security
-    - Public read access for authenticated users
-*/
-
--- Clear existing data
-DELETE FROM assessment_library;
-
--- PHQ-9 (Patient Health Questionnaire-9)
-INSERT INTO assessment_library (
-  name,
-  abbreviation,
-  category,
-  description,
-  questions,
-  scoring_method,
-  interpretation_guide,
-  is_active
-) VALUES (
+-- Seed standardized assessments
+INSERT INTO assessment_library (name, abbreviation, category, description, questions, scoring_method, interpretation_guide, is_active)
+SELECT
   'Patient Health Questionnaire-9',
   'PHQ-9',
   'depression',
@@ -38,7 +15,7 @@ INSERT INTO assessment_library (
       "scale_labels": ["Not at all", "Several days", "More than half the days", "Nearly every day"]
     },
     {
-      "id": "phq9_2", 
+      "id": "phq9_2",
       "text": "Feeling down, depressed, or hopeless",
       "type": "scale",
       "scale_min": 0,
@@ -48,7 +25,7 @@ INSERT INTO assessment_library (
     {
       "id": "phq9_3",
       "text": "Trouble falling or staying asleep, or sleeping too much",
-      "type": "scale", 
+      "type": "scale",
       "scale_min": 0,
       "scale_max": 3,
       "scale_labels": ["Not at all", "Several days", "More than half the days", "Nearly every day"]
@@ -107,7 +84,7 @@ INSERT INTO assessment_library (
     "scoring_method": "sum",
     "interpretation": {
       "0-4": "Minimal depression",
-      "5-9": "Mild depression", 
+      "5-9": "Mild depression",
       "10-14": "Moderate depression",
       "15-19": "Moderately severe depression",
       "20-27": "Severe depression"
@@ -120,19 +97,12 @@ INSERT INTO assessment_library (
     "administration_time": "2-3 minutes"
   }'::jsonb,
   true
+WHERE NOT EXISTS (
+  SELECT 1 FROM assessment_library WHERE abbreviation = 'PHQ-9'
 );
 
--- GAD-7 (Generalized Anxiety Disorder 7-item)
-INSERT INTO assessment_library (
-  name,
-  abbreviation,
-  category,
-  description,
-  questions,
-  scoring_method,
-  interpretation_guide,
-  is_active
-) VALUES (
+INSERT INTO assessment_library (name, abbreviation, category, description, questions, scoring_method, interpretation_guide, is_active)
+SELECT
   'Generalized Anxiety Disorder 7-item',
   'GAD-7',
   'anxiety',
@@ -201,7 +171,7 @@ INSERT INTO assessment_library (
     "interpretation": {
       "0-4": "Minimal anxiety",
       "5-9": "Mild anxiety",
-      "10-14": "Moderate anxiety", 
+      "10-14": "Moderate anxiety",
       "15-21": "Severe anxiety"
     }
   }'::jsonb,
@@ -212,19 +182,12 @@ INSERT INTO assessment_library (
     "administration_time": "2-3 minutes"
   }'::jsonb,
   true
+WHERE NOT EXISTS (
+  SELECT 1 FROM assessment_library WHERE abbreviation = 'GAD-7'
 );
 
--- BDI-II (Beck Depression Inventory-II) - Simplified version
-INSERT INTO assessment_library (
-  name,
-  abbreviation,
-  category,
-  description,
-  questions,
-  scoring_method,
-  interpretation_guide,
-  is_active
-) VALUES (
+INSERT INTO assessment_library (name, abbreviation, category, description, questions, scoring_method, interpretation_guide, is_active)
+SELECT
   'Beck Depression Inventory-II',
   'BDI-II',
   'depression',
@@ -303,4 +266,6 @@ INSERT INTO assessment_library (
     "administration_time": "5-10 minutes"
   }'::jsonb,
   true
+WHERE NOT EXISTS (
+  SELECT 1 FROM assessment_library WHERE abbreviation = 'BDI-II'
 );
