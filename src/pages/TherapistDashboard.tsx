@@ -34,6 +34,8 @@ const CommunicationTools = React.lazy(() => import('../components/therapist/Comm
 const DocumentationCompliance = React.lazy(() => import('../components/therapist/DocumentationCompliance').then(m => ({ default: m.DocumentationCompliance })))
 const ResourceLibrary = React.lazy(() => import('../components/therapist/ResourceLibrary').then(m => ({ default: m.ResourceLibrary })))
 const PracticeManagement = React.lazy(() => import('../components/therapist/PracticeManagement').then(m => ({ default: m.PracticeManagement })))
+const Supervision = React.lazy(() => import('../components/therapist/Supervision').then(m => ({ default: m.Supervision })))
+const ContactSupport = React.lazy(() => import('../components/therapist/ContactSupport').then(m => ({ default: m.ContactSupport })))
 
 interface DashboardStats {
   totalClients: number
@@ -426,6 +428,18 @@ export const TherapistDashboard: React.FC = () => {
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <CommunicationTools />
+          </React.Suspense>
+        )
+      case 'supervision':
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <Supervision />
+          </React.Suspense>
+        )
+      case 'support':
+        return (
+          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
+            <ContactSupport />
           </React.Suspense>
         )
       case 'archive':
