@@ -1,3 +1,4 @@
+ALTER TABLE assessment_library ADD COLUMN is_active boolean DEFAULT true;
 -- Seed standardized assessments
 INSERT INTO assessment_library (name, abbreviation, category, description, questions, scoring_method, interpretation_guide, is_active)
 SELECT
