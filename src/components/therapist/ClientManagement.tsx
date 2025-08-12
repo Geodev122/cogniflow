@@ -184,9 +184,71 @@ export const ClientManagement: React.FC = () => {
 
   const addClientToRoster = async (clientData: { firstName: string; lastName: string; email: string; whatsappNumber: string }) => {
     try {
-      // This will be replaced with the new client creation flow
-      alert('Client creation functionality will be implemented with the new flow.')
-      return
+      // Generate patient code
+      const patientCode = `PT${Math.floor(Math.random() * 900000) + 100000}`
+      
+      // Create client account
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: clientData.email,
+        password: Math.random().toString(36).slice(-8), // Temporary password
+        email_confirm: true,
+        user_metadata: {
+          first_name: clientData.firstName,
+          last_name: clientData.lastName,
+          role: 'client'
+        }
+      })
+
+      if (authError) throw authError
+
+      const clientId = authData.user.id
+
+      // Create profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: clientId,
+          role: 'client',
+          first_name: clientData.firstName,
+          last_name: clientData.lastName,
+          email: clientData.email,
+          whatsapp_number: clientData.whatsappNumber,
+          patient_code: patientCode,
+          created_by_therapist: profile!.id,
+          password_set: false
+        })
+
+      if (profileError) throw profileError
+
+      // Create therapist-client relation
+      const { error: relationError } = await supabase
+        .from('therapist_client_relations')
+        .insert({
+          therapist_id: profile!.id,
+          client_id: clientId
+        })
+
+      if (relationError) throw relationError
+
+      // Create case
+      const { data: caseData, error: caseError } = await supabase
+        .rpc('create_case_with_milestone', {
+          p_client_id: clientId,
+          p_therapist_id: profile!.id
+        })
+
+      if (caseError) {
+        console.warn('Case creation failed, creating manually:', caseError)
+        // Fallback to manual case creation
+        await supabase
+          .from('cases')
+          .insert({
+            client_id: clientId,
+            therapist_id: profile!.id,
+            case_number: `CASE-${Date.now()}`,
+            status: 'active'
+          })
+      }
 
       await fetchClients()
       setShowAddClient(false)

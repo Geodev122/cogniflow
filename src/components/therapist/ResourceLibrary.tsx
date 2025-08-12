@@ -179,7 +179,8 @@ export const ResourceLibrary: React.FC = () => {
       (activeTab === 'assessments' && resource.type === 'assessment') ||
       (activeTab === 'treatments' && resource.type === 'treatment_plan') ||
       (activeTab === 'worksheets' && resource.type === 'worksheet') ||
-      (activeTab === 'psychoeducation' && ['article', 'video', 'audio'].includes(resource.type))
+      (activeTab === 'psychoeducation' && ['article', 'video', 'audio'].includes(resource.type)) ||
+      (activeTab === 'exercises' && resource.type === 'exercise')
 
     const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          resource.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
