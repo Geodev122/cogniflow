@@ -493,9 +493,9 @@ export const TherapistDashboard: React.FC = () => {
                 • Review progress reports
               </div>
             </div>
-            </div>
           </div>
         </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content Grid */}
@@ -689,6 +689,13 @@ export const TherapistDashboard: React.FC = () => {
             <PracticeManagement />
           </React.Suspense>
         )
+      default:
+        return renderOverview()
+    }
+  }
+
+  return (
+    <Layout>
       <div className="flex h-screen bg-gray-50">
         {/* Sidebar - Desktop */}
         <div className={`hidden md:flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ${
