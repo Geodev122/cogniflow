@@ -23,46 +23,19 @@ export const useAuth = () => {
     try {
       console.log('Fetching profile for user:', user.id)
       
-      // Try database first, handle missing profile gracefully
-      try {
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .maybeSingle() // Use maybeSingle() instead of single() to handle 0 rows gracefully
-        
-        if (profileData && !profileError) {
-          console.log('Using profile from database:', profileData)
-          setProfile(profileData)
-          setError(null) // Clear any previous errors
-          return
-        } else if (profileError && profileError.code !== 'PGRST116') {
-          // Only log non-"no rows" errors as warnings
-          console.warn('Database profile fetch failed:', profileError)
-        }
-      } catch (dbError) {
-        console.warn('Database profile fetch error, using auth metadata:', dbError)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      
+      if (profileError) {
+        console.error('Profile fetch error:', profileError)
+        throw profileError
       }
       
-      // Fallback to auth metadata
-      if (user) {
-        const fallbackProfile = {
-          id: user.id,
-          role: (user.user_metadata?.role || 'client') as 'therapist' | 'client',
-          first_name: user.user_metadata?.first_name || 'User',
-          last_name: user.user_metadata?.last_name || '',
-          email: user.email || '',
-          whatsapp_number: null,
-          professional_details: null,
-          verification_status: null
-        }
-        console.log('Using fallback profile from auth metadata (profile missing in database):', fallbackProfile)
-        setProfile(fallbackProfile)
-        setError(null) // Clear any previous errors
-        return
-      }
-      
-      throw new Error('No user found')
+      setProfile(profileData)
+      setError(null)
     } catch (error) {
       console.error('Error fetching profile:', error)
       setError('Failed to load profile')
@@ -77,16 +50,7 @@ export const useAuth = () => {
       try {
         setError(null)
         
-        // Get initial session with timeout
-        const sessionPromise = supabase.auth.getSession()
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 10000)
-        )
-        
-        const { data: { session } } = await Promise.race([
-          sessionPromise,
-          timeoutPromise
-        ]) as any
+        const { data: { session } } = await supabase.auth.getSession()
         
         if (!mounted) return
         
@@ -113,36 +77,31 @@ export const useAuth = () => {
 
     initializeAuth()
 
-    // Listen for auth changes with debouncing
-    let authTimeout: NodeJS.Timeout
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
         
-        clearTimeout(authTimeout)
-        authTimeout = setTimeout(async () => {
-          console.log('Auth state change:', event)
-          setError(null)
-          
-          try {
-            if (event === 'SIGNED_IN' && session?.user) {
-              setUser(session.user)
-              await fetchProfile(session.user)
-            } else if (event === 'SIGNED_OUT') {
-              setUser(null)
-              setProfile(null)
-            }
-          } catch (error) {
-            console.error('Auth state change error:', error)
-            setError('Authentication error occurred')
+        console.log('Auth state change:', event)
+        setError(null)
+        
+        try {
+          if (event === 'SIGNED_IN' && session?.user) {
+            setUser(session.user)
+            await fetchProfile(session.user)
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null)
+            setProfile(null)
           }
-        }, 100)
+        } catch (error) {
+          console.error('Auth state change error:', error)
+          setError('Authentication error occurred')
+        }
       }
     )
 
     return () => {
       mounted = false
-      clearTimeout(authTimeout)
       subscription.unsubscribe()
     }
   }, [fetchProfile])

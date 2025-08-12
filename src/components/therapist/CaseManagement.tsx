@@ -214,6 +214,7 @@ export const CaseManagement: React.FC = () => {
     if (!selectedCase || !profile) return
     const title = prompt('Plan title')
     if (!title) return
+    
     const { error } = await supabase
       .from('treatment_plans')
       .insert({
@@ -222,8 +223,10 @@ export const CaseManagement: React.FC = () => {
         title: title,
         status: 'active'
       })
+    
     if (error) {
       console.error('Error creating plan:', error)
+      alert('Error creating treatment plan. Please try again.')
     } else {
       fetchCaseFiles()
     }
@@ -233,6 +236,7 @@ export const CaseManagement: React.FC = () => {
     if (!selectedCase?.treatmentPlanId) return
     const text = prompt('Goal description')
     if (!text) return
+    
     const { error } = await supabase
       .from('therapy_goals')
       .insert({
@@ -241,8 +245,10 @@ export const CaseManagement: React.FC = () => {
         progress_percentage: 0,
         status: 'active'
       })
+    
     if (error) {
       console.error('Error adding goal:', error)
+      alert('Error adding goal. Please try again.')
     } else {
       fetchCaseFiles()
     }
@@ -256,8 +262,10 @@ export const CaseManagement: React.FC = () => {
         status: 'achieved'
       })
       .eq('id', goalId)
+    
     if (error) {
       console.error('Error updating goal:', error)
+      alert('Error updating goal. Please try again.')
     } else {
       fetchCaseFiles()
     }

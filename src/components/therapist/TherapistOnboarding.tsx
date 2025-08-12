@@ -273,15 +273,18 @@ export const TherapistOnboarding: React.FC<TherapistOnboardingProps> = ({ onComp
         licenses: formData.licenses
       }
 
-      await supabase.from('profiles').upsert({
-        id: profile.id,
+      const { error } = await supabase.from('profiles').update({
         whatsapp_number: formData.whatsappNumber,
         professional_details: professionalDetails,
         verification_status: 'pending'
-      })
+      }).eq('id', profile.id)
 
-      const { data: completion } = await supabase.rpc('profile_completion', { id: profile.id })
-      setProfileCompletion(completion || 0)
+      if (error) {
+        console.error('Error updating profile:', error)
+        return
+      }
+
+      calculateCompletion()
       setShowConfirmation(true)
     }
   }

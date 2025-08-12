@@ -2,62 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
-// Mock data for fallback when RLS policies fail
-const mockWorksheets: Worksheet[] = [
-  {
-    id: 'mock-assign-1',
-    worksheet_id: 'mock-1',
-    title: 'Daily Thought Record',
-    content: { situation: '', thoughts: '', emotions: '', behaviors: '' },
-    responses: {},
-    status: 'assigned',
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    completed_at: null
-  }
-]
-
-const mockPsychometricForms: PsychometricForm[] = [
-  {
-    id: 'mock-form-1',
-    form_type: 'PHQ-9',
-    title: 'Depression Assessment',
-    questions: [],
-    responses: {},
-    score: 0,
-    status: 'assigned',
-    created_at: new Date().toISOString(),
-    completed_at: null
-  }
-]
-
-const mockExercises: Exercise[] = [
-  {
-    id: 'mock-exercise-1',
-    exercise_type: 'breathing',
-    title: 'Breathing Exercise',
-    description: 'Practice deep breathing techniques',
-    game_config: {},
-    progress: {},
-    status: 'assigned',
-    created_at: new Date().toISOString(),
-    last_played_at: null
-  }
-]
-
-const mockProgressData: ProgressData[] = [
-  {
-    date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    value: 5,
-    metric_type: 'mood'
-  },
-  {
-    date: new Date().toISOString(),
-    value: 7,
-    metric_type: 'mood'
-  }
-]
-
 interface Worksheet {
   id: string // assignment id
   worksheet_id: string
@@ -106,62 +50,8 @@ export const useClientData = () => {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [progressData, setProgressData] = useState<ProgressData[]>([])
   const [loading, setLoading] = useState(true)
-  const [usingFallbackData, setUsingFallbackData] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const { profile } = useAuth()
-
-  // Helper function to detect infinite recursion errors
-  const isRecursionError = (error: any): boolean => {
-    if (!error) return false
-    
-    // Check error message directly
-    if (error.message && error.message.includes('infinite recursion')) {
-      return true
-    }
-    
-    // Check stringified error for network errors
-    const errorString = String(error)
-    if (errorString.includes('infinite recursion')) {
-      return true
-    }
-    
-    // Check body property for Supabase network errors
-    if (error.body && typeof error.body === 'string') {
-      try {
-        const bodyObj = JSON.parse(error.body)
-        if (bodyObj.message && bodyObj.message.includes('infinite recursion')) {
-          return true
-        }
-      } catch {
-        // If body is not valid JSON, check as string
-        if (error.body.includes('infinite recursion')) {
-          return true
-        }
-      }
-    }
-    
-    return false
-  }
-
-  // Helper function to handle RLS policy failures with fallback data
-  const handleRLSFailure = (dataType: string) => {
-    console.warn(`RLS policy failure detected for ${dataType}, using fallback data`)
-    setUsingFallbackData(true)
-    
-    switch (dataType) {
-      case 'worksheets':
-        setWorksheets(mockWorksheets)
-        break
-      case 'psychometric_forms':
-        setPsychometricForms(mockPsychometricForms)
-        break
-      case 'exercises':
-        setExercises(mockExercises)
-        break
-      case 'progress_data':
-        setProgressData(mockProgressData)
-        break
-    }
-  }
 
   const fetchWorksheets = useCallback(async () => {
     if (!profile) return
@@ -177,12 +67,9 @@ export const useClientData = () => {
         .limit(20)
 
       if (error) {
-        if (isRecursionError(error)) {
-          handleRLSFailure('worksheets')
-          return
-        }
         throw error
       }
+      
       const formatted = data?.map((a: any) => ({
         id: a.id,
         worksheet_id: a.worksheet_id,
@@ -194,14 +81,11 @@ export const useClientData = () => {
         updated_at: a.completed_at || a.assigned_at,
         completed_at: a.completed_at
       })) || []
+      
       setWorksheets(formatted)
     } catch (error) {
       console.error('Error fetching worksheets:', error)
-      if (isRecursionError(error)) {
-        handleRLSFailure('worksheets')
-        return
-      }
-      handleRLSFailure('worksheets')
+      setWorksheets([])
     }
   }, [profile])
 
@@ -219,21 +103,13 @@ export const useClientData = () => {
         .limit(20)
 
       if (error) {
-        if (isRecursionError(error)) {
-          handleRLSFailure('psychometric_forms')
-          return
-        }
         throw error
       }
 
       setPsychometricForms(data || [])
     } catch (error) {
       console.error('Error fetching psychometric forms:', error)
-      if (isRecursionError(error)) {
-        handleRLSFailure('psychometric_forms')
-        return
-      }
-      handleRLSFailure('psychometric_forms')
+      setPsychometricForms([])
     }
   }, [profile])
 
@@ -251,21 +127,13 @@ export const useClientData = () => {
         .limit(20)
 
       if (error) {
-        if (isRecursionError(error)) {
-          handleRLSFailure('exercises')
-          return
-        }
         throw error
       }
 
       setExercises(data || [])
     } catch (error) {
       console.error('Error fetching exercises:', error)
-      if (isRecursionError(error)) {
-        handleRLSFailure('exercises')
-        return
-      }
-      handleRLSFailure('exercises')
+      setExercises([])
     }
   }, [profile])
 
@@ -281,16 +149,6 @@ export const useClientData = () => {
         .limit(100)
 
       if (error) {
-        if (isRecursionError(error)) {
-          handleRLSFailure('progress_data')
-          return
-        }
-        // Handle infinite recursion error by setting empty data
-        if (String(error).includes('infinite recursion')) {
-          console.warn('RLS policy recursion detected for progress tracking, using empty data')
-          setProgressData([])
-          return
-        }
         throw error
       }
 
@@ -302,11 +160,7 @@ export const useClientData = () => {
       setProgressData(formattedData)
     } catch (error) {
       console.error('Error fetching progress data:', error)
-      if (isRecursionError(error)) {
-        handleRLSFailure('progress_data')
-        return
-      }
-      handleRLSFailure('progress_data')
+      setProgressData([])
     }
   }, [profile])
 
@@ -314,6 +168,7 @@ export const useClientData = () => {
     if (!profile) return
 
     setLoading(true)
+    setError(null)
     try {
       await Promise.all([
         fetchWorksheets(),
@@ -323,10 +178,7 @@ export const useClientData = () => {
       ])
     } catch (error) {
       console.error('Error fetching client data:', error)
-      if (isRecursionError(error)) {
-        console.warn('RLS policy recursion detected in fetchAllData, using fallback data where needed')
-        setUsingFallbackData(true)
-      }
+      setError('Failed to load client data')
     } finally {
       setLoading(false)
     }
@@ -433,7 +285,7 @@ export const useClientData = () => {
     exercises,
     progressData,
     loading,
-    usingFallbackData,
+    error,
     updateWorksheet,
     completePsychometricForm,
     updateExerciseProgress,

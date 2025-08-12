@@ -40,7 +40,7 @@ export default function ClientDashboard() {
     exercises,
     progressData,
     loading,
-    usingFallbackData,
+    error,
     updateWorksheet,
     completePsychometricForm,
     updateExerciseProgress
@@ -546,10 +546,10 @@ export default function ClientDashboard() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Client Portal - Welcome, {profile?.first_name}!</h1>
           <div className="flex items-center space-x-2">
-            {usingFallbackData && (
+            {error && (
               <div className="flex items-center space-x-1 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
                 <AlertTriangle className="w-4 h-4" />
-                <span>Demo Mode</span>
+                <span>Data Error</span>
               </div>
             )}
             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-medium">

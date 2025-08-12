@@ -14,18 +14,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
     flowType: 'pkce'
   },
-  global: {
-    headers: {
-      'x-client-info': 'cogniflow-web'
-    }
-  },
   db: {
     schema: 'public'
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
   }
 })
 
