@@ -878,3 +878,59 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+
+
+-- Create a helper function for role-based access
+CREATE OR REPLACE FUNCTION check_user_role(allowed_roles text[])
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE 
+    user_role text;
+BEGIN
+    user_role := (auth.jwt() ->> 'user_role');
+    RETURN user_role = ANY(allowed_roles);
+END;
+$$;
+
+-- Revoke execute permissions to prevent API exposure
+REVOKE EXECUTE ON FUNCTION check_user_role(text[]) FROM anon, authenticated;
+
+-- Enable Row Level Security
+ALTER TABLE public.assessment_library ENABLE ROW LEVEL SECURITY;
+
+-- Remove the problematic index
+-- CREATE INDEX idx_assessment_library_role 
+-- ON public.assessment_library 
+-- USING btree ((auth.jwt() ->> 'user_role'));
+
+-- 1. View assessments policy (admins and therapists)
+CREATE POLICY "View assessments" 
+ON public.assessment_library 
+FOR SELECT 
+TO authenticated 
+USING (check_user_role(ARRAY['admin', 'therapist']));
+
+-- 2. Insert assessments policy (admins and therapists)
+CREATE POLICY "Insert assessments" 
+ON public.assessment_library 
+FOR INSERT 
+TO authenticated 
+WITH CHECK (check_user_role(ARRAY['admin', 'therapist']));
+
+-- 3. Update assessments policy (admins only)
+CREATE POLICY "Update assessments" 
+ON public.assessment_library 
+FOR UPDATE 
+TO authenticated 
+USING (check_user_role(ARRAY['admin']))
+WITH CHECK (check_user_role(ARRAY['admin']));
+
+-- 4. Delete assessments policy (admins only)
+CREATE POLICY "Delete assessments" 
+ON public.assessment_library 
+FOR DELETE 
+TO authenticated 
+USING (check_user_role(ARRAY['admin']));
