@@ -205,7 +205,18 @@ export const TherapistDashboard: React.FC = () => {
       setProfileError(error.message)
       setTherapistProfile(null)
     } else {
-      setTherapistProfile(data as TherapistProfileData)
+      // Ensure stats object exists with default values
+      const profileData = data as TherapistProfileData
+      if (profileData) {
+        profileData.stats = profileData.stats || {
+          totalClients: 0,
+          yearsExperience: 0,
+          rating: 0,
+          reviewCount: 0,
+          responseTime: 'N/A'
+        }
+      }
+      setTherapistProfile(profileData)
     }
 
     setProfileLoading(false)
