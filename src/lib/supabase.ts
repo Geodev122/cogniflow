@@ -269,7 +269,7 @@ export type Database = {
           source_id?: string | null
           recorded_at?: string
         }
-      },
+      }
       session_notes: {
         Row: {
           id: string
@@ -282,40 +282,41 @@ export type Database = {
           id?: string
           appointment_id?: string | null
           therapist_id?: string | null
-          id: number
+          progress_notes?: string | null
           created_at?: string
         }
         Update: {
           id?: string
-          questions: any
+          appointment_id?: string | null
           therapist_id?: string | null
           progress_notes?: string | null
+          created_at?: string
         }
-          updated_at: string
-      },
+      }
       document_uploads: {
-          id?: number
         Row: {
           id: string
           session_id: string | null
-          description?: string | null
-          questions: any
+          therapist_id: string | null
+          file_url: string
+          description: string | null
           created_at: string
         }
+        Insert: {
           id?: string
-          updated_at?: string
           session_id?: string | null
           therapist_id?: string | null
-          id?: number
           file_url: string
+          description?: string | null
           created_at?: string
         }
-          description?: string | null
-          questions?: any
+        Update: {
+          id?: string
           session_id?: string | null
           therapist_id?: string | null
+          file_url?: string
+          description?: string | null
           created_at?: string
-          updated_at?: string
         }
       }
       gamified_apps: {
