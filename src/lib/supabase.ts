@@ -270,6 +270,44 @@ export type Database = {
           recorded_at?: string
         }
       }
+      assessment_library: {
+        Row: {
+          id: number
+          name: string
+          abbreviation: string
+          category: string
+          description: string | null
+          questions: any
+          scoring_method: any
+          interpretation_guide: any
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          name: string
+          abbreviation: string
+          category: string
+          description?: string | null
+          questions: any
+          scoring_method: any
+          interpretation_guide: any
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          name?: string
+          abbreviation?: string
+          category?: string
+          description?: string | null
+          questions?: any
+          scoring_method?: any
+          interpretation_guide?: any
+          created_at?: string
+          updated_at?: string
+        }
+      }
       session_notes: {
         Row: {
           id: string
