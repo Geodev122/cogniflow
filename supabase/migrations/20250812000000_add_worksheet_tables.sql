@@ -47,4 +47,3 @@ create policy "Clients update own worksheet assignments"
   to authenticated
   using (client_id = auth.uid())
   with check (client_id = auth.uid());
-
