@@ -199,7 +199,7 @@ export const TherapistDashboard: React.FC = () => {
     setProfileLoading(true)
     setProfileError(null)
 
-    const { data, error } = await supabase.rpc('get_therapist_profile', { id: profile.id })
+    const { data, error } = await supabase.rpc('get_therapist_profile', { p_user_id: profile.id })
 
     if (error) {
       setProfileError(error.message)
