@@ -127,10 +127,16 @@ export const TherapistDashboard: React.FC = () => {
     }
 
     const fetchRecentActivity = async () => {
-      const { data } = await supabase.rpc('get_recent_activity', {
+      const { data, error } = await supabase.rpc('get_recent_activity', {
         therapist_id: profile.id,
         limit_count: 5
       })
+
+      if (error) {
+        console.error('Error fetching recent activity:', error)
+        setActivity([])
+        return
+      }
 
       setActivity(data ?? [])
     }
