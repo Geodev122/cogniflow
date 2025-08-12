@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuth } from '../../context/AuthContext'
 import { CaseFormulation } from './CaseFormulation'
 import { InBetweenSessions } from './InBetweenSessions'
 import { FileText, User, Calendar, TrendingUp, ClipboardList, Plus, Search, Filter, Eye, BarChart3, Clock, CheckCircle, AlertTriangle, Brain, Target, Activity, BookOpen, Award, MessageSquare, Send, PlayCircle, PlusCircle, Stethoscope, Baseline as Timeline, Archive } from 'lucide-react'

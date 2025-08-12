@@ -20,7 +20,7 @@ import {
   X
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuth } from '../../context/AuthContext'
 
 interface OnboardingData {
   // Step 1: Basic Info
