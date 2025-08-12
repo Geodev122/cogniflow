@@ -20,3 +20,31 @@ create table if not exists worksheet_assignments (
 
 create index if not exists worksheet_assignments_client_idx on worksheet_assignments(client_id);
 create index if not exists worksheet_assignments_worksheet_idx on worksheet_assignments(worksheet_id);
+
+-- Enable Row Level Security
+alter table worksheets enable row level security;
+alter table worksheet_assignments enable row level security;
+
+-- Allow therapists to manage their own worksheets
+create policy "Therapists manage own worksheets"
+  on worksheets
+  for all
+  to authenticated
+  using (therapist_id = auth.uid())
+  with check (therapist_id = auth.uid());
+
+-- Allow clients to view their own assignments
+create policy "Clients view own worksheet assignments"
+  on worksheet_assignments
+  for select
+  to authenticated
+  using (client_id = auth.uid());
+
+-- Allow clients to update their own assignments
+create policy "Clients update own worksheet assignments"
+  on worksheet_assignments
+  for update
+  to authenticated
+  using (client_id = auth.uid())
+  with check (client_id = auth.uid());
+
