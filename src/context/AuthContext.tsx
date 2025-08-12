@@ -58,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const checkSupabaseConnection = async () =>
       withTimeout(
         fetch(`${supabaseUrl}/rest/v1/`),
-        5000,
+        30000,
         'Supabase unreachable'
       )
 
