@@ -1,7 +1,29 @@
---
 -- Ensure SECURITY DEFINER functions use the public schema
 -- and re-grant execute permissions after updates
 --
+CREATE OR REPLACE FUNCTION public.get_case_timeline(case_id uuid)
+RETURNS TABLE (
+    milestone_id uuid,
+    milestone_type integer,
+    milestone_date timestamp with time zone,
+    milestone_description text
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    RETURN QUERY 
+    SELECT 
+        id AS milestone_id, 
+        milestone_type, 
+        created_at AS milestone_date, 
+        description AS milestone_description
+    FROM case_milestones
+    WHERE case_id = get_case_timeline.case_id
+    ORDER BY created_at;
+END;
+$$;
 
 -- Profile management functions
 ALTER FUNCTION create_profile_for_auth_user(text, text, text, text) SET search_path = public;
