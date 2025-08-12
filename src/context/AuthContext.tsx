@@ -149,8 +149,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       })
       if (error) throw error
     } catch (error) {
-      setLoading(false)
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -193,8 +194,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (profileError) throw profileError
       }
     } catch (error) {
-      setLoading(false)
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
