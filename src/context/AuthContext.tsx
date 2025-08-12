@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
@@ -28,6 +28,7 @@ interface AuthContextType {
     role: 'therapist' | 'client'
   ) => Promise<void>
   signOut: () => Promise<void>
+  retryAuth: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -37,9 +38,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const initializeAuthRef = useRef<() => Promise<void>>()
 
   useEffect(() => {
     let mounted = true
+
+    const withTimeout = <T,>(
+      promise: Promise<T>,
+      ms: number,
+      timeoutMessage: string
+    ) =>
+      Promise.race<T>([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(timeoutMessage)), ms)
+        )
+      ])
 
     const fetchProfile = async (userId: string) => {
       try {
@@ -76,7 +90,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const {
           data: { session },
           error: sessionError
-        } = await supabase.auth.getSession()
+        } = await withTimeout(
+          supabase.auth.getSession(),
+          10000,
+          'Authentication request timed out'
+        )
 
         if (sessionError) {
           console.error('Session error:', sessionError)
@@ -88,15 +106,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (session?.user) {
           setUser(session.user)
-          await fetchProfile(session.user.id)
+          await withTimeout(
+            fetchProfile(session.user.id),
+            10000,
+            'Profile request timed out'
+          )
         } else {
           setUser(null)
           setProfile(null)
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error initializing auth:', error)
         if (mounted) {
-          setError('Failed to initialize authentication')
+          setError(error?.message || 'Failed to initialize authentication')
           setUser(null)
           setProfile(null)
         }
@@ -107,6 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    initializeAuthRef.current = initializeAuth
     initializeAuth()
 
     const {
@@ -137,6 +160,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe()
     }
   }, [])
+
+  const retryAuth = () => {
+    setError(null)
+    setLoading(true)
+    initializeAuthRef.current && initializeAuthRef.current()
+  }
 
   const signIn = async (email: string, password: string) => {
     setError(null)
@@ -208,8 +237,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, error, signIn, signUp, signOut }}
+      value={{ user, profile, loading, error, signIn, signUp, signOut, retryAuth }}
     >
+      {error?.includes('timed out') && (
+        <div className="p-4 text-center text-red-600">
+          <p>{error}</p>
+          <button onClick={retryAuth} className="mt-2 underline">
+            Retry
+          </button>
+        </div>
+      )}
       {children}
     </AuthContext.Provider>
   )
