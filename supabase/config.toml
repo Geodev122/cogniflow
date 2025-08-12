@@ -21,10 +21,6 @@ enable_email_confirmations = true
 # Optional: Configure OTP (One-Time Password) expiry
 otp_expiry = 600  # 1 hour, which is a good default
 
-
-[auth.password]
-hibp_enabled = true
-
 # Optional: Enhanced security settings
 [auth.rate_limit]
 # Limit signup and login attempts
@@ -34,12 +30,7 @@ web3 = 30
 
 # Optional: Password complexity requirements
 [auth.password]
-min_length = 8
-# Optionally enforce complexity
-require_uppercase = true
-require_lowercase = true
-require_numbers = true
-require_special_chars = false
+hibp_enabled = true
 
 # Optional: Session management
 [auth.sessions]
