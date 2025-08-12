@@ -239,14 +239,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{ user, profile, loading, error, signIn, signUp, signOut, retryAuth }}
     >
-      {error?.includes('timed out') && (
-        <div className="p-4 text-center text-red-600">
-          <p>{error}</p>
-          <button onClick={retryAuth} className="mt-2 underline">
-            Retry
-          </button>
-        </div>
-      )}
       {children}
     </AuthContext.Provider>
   )
