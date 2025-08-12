@@ -4,24 +4,25 @@ import { TherapistOnboarding } from '../components/therapist/TherapistOnboarding
 import { TherapistProfile } from '../components/therapist/TherapistProfile'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
-  import {
-    Users,
-    ClipboardList,
-    FileText,
-    Calendar,
-    MessageSquare,
-    Library,
-    BarChart3,
-    Brain,
-    Target,
-    Clock,
-    CheckCircle,
-    AlertTriangle,
-    ChevronRight,
-    Menu,
-    X,
-    User
-  } from 'lucide-react'
+import {
+  Users,
+  ClipboardList,
+  FileText,
+  Calendar,
+  MessageSquare,
+  Library,
+  BarChart3,
+  Brain,
+  Target,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  ChevronRight,
+  Menu,
+  X,
+  User,
+  TrendingUp
+} from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 
 // Lazy load components for better performance
@@ -52,6 +53,33 @@ interface Insight {
   count: number
 }
 
+interface TherapistProfileData {
+  id: string
+  fullName: string
+  profilePicture?: string
+  whatsappNumber: string
+  email: string
+  specializations: string[]
+  languages: string[]
+  qualifications: string
+  bio: string
+  introVideo?: string
+  practiceLocations: Array<{
+    address: string
+    isPrimary: boolean
+  }>
+  verificationStatus: 'pending' | 'verified' | 'rejected'
+  membershipStatus: 'active' | 'inactive' | 'pending'
+  joinDate: string
+  stats: {
+    totalClients: number
+    yearsExperience: number
+    rating: number
+    reviewCount: number
+    responseTime: string
+  }
+}
+
 export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -68,6 +96,9 @@ export const TherapistDashboard: React.FC = () => {
   const [profileCompletion, setProfileCompletion] = useState(0)
   const [insights, setInsights] = useState<Insight[]>([])
   const { profile } = useAuth()
+  const [therapistProfile, setTherapistProfile] = useState<TherapistProfileData | null>(null)
+  const [profileLoading, setProfileLoading] = useState(true)
+  const [profileError, setProfileError] = useState<string | null>(null)
 
   const iconMap = { ClipboardList, Clock }
   const severityStyles = {
@@ -162,6 +193,24 @@ export const TherapistDashboard: React.FC = () => {
     setInsights((data as Insight[]) || [])
   }, [profile])
 
+  const fetchTherapistProfile = useCallback(async () => {
+    if (!profile) return
+
+    setProfileLoading(true)
+    setProfileError(null)
+
+    const { data, error } = await supabase.rpc('get_therapist_profile', { id: profile.id })
+
+    if (error) {
+      setProfileError(error.message)
+      setTherapistProfile(null)
+    } else {
+      setTherapistProfile(data as TherapistProfileData)
+    }
+
+    setProfileLoading(false)
+  }, [profile])
+
   useEffect(() => {
     if (profile) {
       fetchDashboardStats()
@@ -169,8 +218,9 @@ export const TherapistDashboard: React.FC = () => {
         setProfileCompletion(data || 0)
       })
       fetchInsights()
+      fetchTherapistProfile()
     }
-  }, [profile, fetchDashboardStats, fetchInsights])
+  }, [profile, fetchDashboardStats, fetchInsights, fetchTherapistProfile])
 
   const tabs = useMemo(() => [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -528,30 +578,6 @@ export const TherapistDashboard: React.FC = () => {
     </div>
   )
 
-  // TODO: Replace mockTherapist with actual data from the database
-  const mockTherapist = {
-    id: profile?.id || '',
-    fullName: `${profile?.first_name} ${profile?.last_name}`,
-    profilePicture: '',
-    whatsappNumber: '123-456-7890',
-    email: profile?.email || '',
-    specializations: ['Cognitive Behavioral Therapy (CBT)', 'Mindfulness-Based Cognitive Therapy (MBCT)'],
-    languages: ['English', 'Spanish'],
-    qualifications: 'Licensed Professional Counselor (LPC)',
-    bio: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-    introVideo: '',
-    practiceLocations: [{ address: '123 Main St, Anytown USA', isPrimary: true }],
-    verificationStatus: 'verified',
-    membershipStatus: 'active',
-    joinDate: '2023-01-01',
-    stats: {
-      totalClients: 10,
-      yearsExperience: 5,
-      rating: 4.8,
-      reviewCount: 25,
-      responseTime: '24 hours',
-    },
-  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -612,12 +638,26 @@ export const TherapistDashboard: React.FC = () => {
           </React.Suspense>
         )
       case 'profile':
-        return (
+        if (profileLoading) {
+          return (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          )
+        }
+
+        if (profileError) {
+          return <div className="p-4 text-red-600">{profileError}</div>
+        }
+
+        return therapistProfile ? (
           <TherapistProfile
-            therapist={mockTherapist}
+            therapist={therapistProfile}
             isOwnProfile={true}
             onEdit={() => setShowOnboardingModal(true)}
           />
+        ) : (
+          <div className="p-4 text-gray-600">Profile not found</div>
         )
       default:
         return renderOverview()
