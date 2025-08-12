@@ -7,7 +7,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
@@ -255,6 +255,23 @@ export type Database = {
           details?: string | null
           created_at?: string
         }
+      }
+    },
+    Functions: {
+      get_recent_activity: {
+        Args: {
+          therapist_id: string
+          limit_count?: number
+        }
+        Returns: {
+          id: string
+          client_id: string
+          client_first_name: string
+          client_last_name: string
+          type: string
+          details: string | null
+          created_at: string
+        }[]
       }
     }
   }

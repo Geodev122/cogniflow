@@ -68,83 +68,79 @@ export const TherapistDashboard: React.FC = () => {
   })
   const [loading, setLoading] = useState(true)
   const [profileCompletion, setProfileCompletion] = useState(0)
-  const [activity, setActivity] = useState<ActivityItem[]>([])
+  const [activity, setActivity] = useState<ActivityItem[] | null>(null)
   const { profile } = useAuth()
 
   useEffect(() => {
-    if (profile) {
-      fetchDashboardStats()
-      supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
-        setProfileCompletion(data || 0)
-      })
-      fetchRecentActivity()
-    }
-  }, [profile])
-
-  const fetchDashboardStats = async () => {
     if (!profile) return
 
-    try {
-      // Fetch all stats in parallel for better performance
-      const [
-        { data: clientRelations },
-        { data: assessments },
-        { data: appointments },
-        { data: overdueAssignments }
-      ] = await Promise.all([
-        supabase
-          .from('therapist_client_relations')
-          .select('client_id')
-          .eq('therapist_id', profile.id),
-        supabase
-          .from('form_assignments')
-          .select('status')
-          .eq('therapist_id', profile.id),
-        supabase
-          .from('appointments')
-          .select('id')
-          .eq('therapist_id', profile.id)
-          .eq('status', 'scheduled')
-          .gte('appointment_date', new Date().toISOString())
-          .lte('appointment_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()),
-        supabase
-          .from('form_assignments')
-          .select('id')
-          .eq('therapist_id', profile.id)
-          .eq('status', 'assigned')
-          .lt('due_date', new Date().toISOString().split('T')[0])
-      ])
+    const fetchDashboardStats = async () => {
+      try {
+        // Fetch all stats in parallel for better performance
+        const [
+          { data: clientRelations },
+          { data: assessments },
+          { data: appointments },
+          { data: overdueAssignments }
+        ] = await Promise.all([
+          supabase
+            .from('therapist_client_relations')
+            .select('client_id')
+            .eq('therapist_id', profile.id),
+          supabase
+            .from('form_assignments')
+            .select('status')
+            .eq('therapist_id', profile.id),
+          supabase
+            .from('appointments')
+            .select('id')
+            .eq('therapist_id', profile.id)
+            .eq('status', 'scheduled')
+            .gte('appointment_date', new Date().toISOString())
+            .lte('appointment_date', new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()),
+          supabase
+            .from('form_assignments')
+            .select('id')
+            .eq('therapist_id', profile.id)
+            .eq('status', 'assigned')
+            .lt('due_date', new Date().toISOString().split('T')[0])
+        ])
 
-      const totalClients = clientRelations?.length || 0
-      const pendingAssessments = assessments?.filter(a => a.status === 'assigned' || a.status === 'in_progress').length || 0
-      const completedAssessments = assessments?.filter(a => a.status === 'completed').length || 0
-      const upcomingAppointments = appointments?.length || 0
+        const totalClients = clientRelations?.length || 0
+        const pendingAssessments = assessments?.filter(a => a.status === 'assigned' || a.status === 'in_progress').length || 0
+        const completedAssessments = assessments?.filter(a => a.status === 'completed').length || 0
+        const upcomingAppointments = appointments?.length || 0
 
-      setStats({
-        totalClients,
-        activeClients: totalClients, // For now, assume all clients are active
-        pendingAssessments,
-        completedAssessments,
-        upcomingAppointments,
-        overdueAssignments: overdueAssignments?.length || 0
-      })
-    } catch (error) {
-      console.error('Error fetching dashboard stats:', error)
-    } finally {
-      setLoading(false)
+        setStats({
+          totalClients,
+          activeClients: totalClients, // For now, assume all clients are active
+          pendingAssessments,
+          completedAssessments,
+          upcomingAppointments,
+          overdueAssignments: overdueAssignments?.length || 0
+        })
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
 
-  const fetchRecentActivity = async () => {
-    if (!profile) return
+    const fetchRecentActivity = async () => {
+      const { data } = await supabase.rpc('get_recent_activity', {
+        therapist_id: profile.id,
+        limit_count: 5
+      })
 
-    const { data } = await supabase.rpc('get_recent_activity', {
-      therapist_id: profile.id,
-      limit_count: 5
+      setActivity(data ?? [])
+    }
+
+    fetchDashboardStats()
+    supabase.rpc('profile_completion', { id: profile.id }).then(({ data }) => {
+      setProfileCompletion(data || 0)
     })
-
-    setActivity(data || [])
-  }
+    fetchRecentActivity()
+  }, [profile])
 
   const tabs = useMemo(() => [
     { id: 'overview', name: 'Overview', icon: Target },
@@ -419,7 +415,7 @@ export const TherapistDashboard: React.FC = () => {
           </div>
           <div className="p-6">
             <div className="space-y-4">
-              {activity.length === 0 ? (
+              {activity && activity.length === 0 ? (
                 <div className="flex items-center space-x-3">
                   <div className="flex-shrink-0 w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                     <CheckCircle className="w-4 h-4 text-green-600" />
@@ -430,7 +426,7 @@ export const TherapistDashboard: React.FC = () => {
                   </div>
                 </div>
               ) : (
-                activity.map(item => (
+                activity?.map(item => (
                   <div key={item.id} className="flex items-center space-x-3">
                     <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <Users className="w-4 h-4 text-blue-600" />
