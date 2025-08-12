@@ -3,33 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { CaseFormulation } from './CaseFormulation'
 import { InBetweenSessions } from './InBetweenSessions'
-import { 
-  FileText, 
-  User, 
-  Calendar, 
-  TrendingUp, 
-  ClipboardList, 
-  Plus,
-  Search,
-  Filter,
-  Eye,
-  BarChart3,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
-  Brain,
-  Target,
-  Activity,
-  BookOpen,
-  Award,
-    MessageSquare,
-    Send,
-    PlayCircle,
-    PlusCircle,
-    Stethoscope,
-    Timeline,
-    Archive
-  } from 'lucide-react'
+import { FileText, User, Calendar, TrendingUp, ClipboardList, Plus, Search, Filter, Eye, BarChart3, Clock, CheckCircle, AlertTriangle, Brain, Target, Activity, BookOpen, Award, MessageSquare, Send, PlayCircle, PlusCircle, Stethoscope, Baseline as Timeline, Archive } from 'lucide-react'
 
 interface Client {
   id: string
@@ -650,13 +624,6 @@ export const CaseManagement: React.FC = () => {
               </div>
             )}
           </div>
-        )}
-
-        {activeTab === 'between-sessions' && (
-          <InBetweenSessions 
-            caseFile={selectedCase}
-            onUpdate={fetchCaseFiles}
-          />
         )}
 
         {activeTab === 'progress' && (
