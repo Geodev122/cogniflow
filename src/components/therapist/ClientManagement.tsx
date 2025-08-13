@@ -147,9 +147,63 @@ export const ClientManagement: React.FC = () => {
       await APIService.addClientToRoster(clientData.email)
       await queryClient.invalidateQueries({ queryKey: ['clients', profile!.id] })
       setShowAddClient(false)
+      // Check if user already exists
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', clientData.email)
+        .maybeSingle()
+      
+      let clientId: string
+      
+      if (existingUser) {
+        clientId = existingUser.id
+        
+        // Check if relationship already exists
+        const { data: existingRelation } = await supabase
+          .from('therapist_client_relations')
+          .select('id')
+          .eq('therapist_id', profile!.id)
+          .eq('client_id', clientId)
+          .maybeSingle()
+        
+        if (existingRelation) {
+          alert('This client is already in your roster.')
+          return
+        }
+      } else {
+        // Create new client profile
+        clientId = crypto.randomUUID()
+        const patientCode = crypto.randomUUID().slice(0, 8)
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: clientId,
+            role: 'client',
+            first_name: clientData.firstName,
+            last_name: clientData.lastName,
+            email: clientData.email,
+            whatsapp_number: clientData.whatsappNumber,
+            patient_code: patientCode,
+            created_by_therapist: profile!.id,
+            password_set: false
+          })
+
+        if (profileError) throw profileError
+      }
+
+      // Create therapist-client relation
+      const { error: relationError } = await supabase
+        .from('therapist_client_relations')
+        .insert({
+          therapist_id: profile!.id,
+          client_id: clientId
+        })
+
+      if (relationError) throw relationError
     } catch (error) {
       console.error('Error adding client:', error)
-      alert(error instanceof Error ? error.message : 'Error adding client to roster. Please try again.')
+      alert('Failed to add client. Please try again.')
     }
   }
 
@@ -160,29 +214,28 @@ export const ClientManagement: React.FC = () => {
       setShowClientDetails(false)
     } catch (error) {
       console.error('Error updating client profile:', error)
-      alert(error instanceof Error ? error.message : 'Error updating client profile')
+      alert('Failed to update client profile. Please try again.')
     }
   }
 
   const handleLoadMore = () => {
-    if (hasNextPage) fetchNextPage()
+    fetchNextPage()
   }
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div className="flex items-center space-x-2">
-          <AlertTriangle className="w-5 h-5 text-red-600" />
-          <span className="text-red-800">{error instanceof Error ? error.message : 'Failed to load clients'}</span>
-        </div>
+      <div className="text-center py-12">
+        <AlertTriangle className="mx-auto h-12 w-12 text-red-400" />
+        <h3 className="mt-2 text-sm font-medium text-gray-900">Error loading clients</h3>
+        <p className="mt-1 text-sm text-gray-500">Please try refreshing the page.</p>
       </div>
     )
   }
@@ -192,7 +245,7 @@ export const ClientManagement: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Client Management</h2>
+          <h1 className="text-2xl font-bold text-gray-900">Client Management</h1>
           <p className="text-gray-600">Manage your client roster and profiles</p>
         </div>
         <button
@@ -204,12 +257,12 @@ export const ClientManagement: React.FC = () => {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
+      {/* Search and Filters */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="lg:col-span-2">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Search clients..."
@@ -219,12 +272,12 @@ export const ClientManagement: React.FC = () => {
               />
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Filter className="w-5 h-5 text-gray-400" />
+          
+          <div>
             <select
               value={riskFilter}
               onChange={(e) => setRiskFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Risk Levels</option>
               <option value="low">Low Risk</option>
@@ -232,30 +285,26 @@ export const ClientManagement: React.FC = () => {
               <option value="high">High Risk</option>
               <option value="crisis">Crisis</option>
             </select>
+          </div>
+          
+          <div>
             <select
               value={intakeFilter}
               onChange={(e) => setIntakeFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="all">All Intake Statuses</option>
+              <option value="all">All Intake Status</option>
               <option value="not_started">Not Started</option>
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
             </select>
-            <select
-              value={stageFilter}
-              onChange={(e) => setStageFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Treatment Stages</option>
-              <option value="assessment">Assessment</option>
-              <option value="treatment">Treatment</option>
-              <option value="maintenance">Maintenance</option>
-            </select>
+          </div>
+          
+          <div>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="name">Sort by Name</option>
               <option value="created_at">Sort by Join Date</option>
