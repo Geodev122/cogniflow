@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase'
+import { supabase } from '../lib/supabase'
+import { AuthService } from '../lib/auth'
 
 interface Profile {
   id: string
@@ -38,111 +39,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const initializeAuthRef = useRef<(() => Promise<void>) | null>(null)
+  const retryCountRef = useRef(0)
+  const maxRetries = 3
 
   useEffect(() => {
     let mounted = true
 
-    const withTimeout = <T,>(
-      promise: Promise<T>,
-      ms: number,
-      timeoutMessage: string
-    ) =>
-      Promise.race<T>([
-        promise,
-        new Promise<T>((_, reject) =>
-          setTimeout(() => reject(new Error(timeoutMessage)), ms)
-        )
-      ])
-
-    const checkSupabaseConnection = async () =>
-      withTimeout(
-        fetch(`${supabaseUrl}/rest/v1/`, {
-          headers: {
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`
-          }
-        }),
-        30000,
-        'Supabase unreachable'
-      )
-
-    const fetchProfile = async (userId: string) => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .single()
-
-        if (error) {
-          console.error('Profile fetch error:', error)
-          setProfile(null)
-          setError('Profile not found')
-          return
-        }
-
-        if (mounted) {
-          setProfile(data)
-          setError(null)
-        }
-      } catch (error) {
-        console.error('Error fetching profile:', error)
-        if (mounted) {
-          setProfile(null)
-          setError('Failed to load profile')
-        }
-      }
-    }
-
     const initializeAuth = async () => {
+      if (!mounted) return
+      
       try {
         setError(null)
+        setLoading(true)
 
-        try {
-          await checkSupabaseConnection()
-        } catch (err) {
-          console.error('Supabase connection error:', err)
-          setError(
-            'Cannot reach authentication service. Please verify VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
-          )
-          setUser(null)
-          setProfile(null)
+        // Use edge function for session management
+        const authResponse = await AuthService.getSession()
+
+        if (!authResponse.success) {
+          if (mounted) {
+            setError(authResponse.error || 'Failed to get session')
+            setUser(null)
+            setProfile(null)
+          }
           return
         }
 
-        const {
-          data: { session },
-          error: sessionError
-        } = await withTimeout(
-          supabase.auth.getSession(),
-          10000,
-          'Authentication request timed out'
-        )
-
-        if (sessionError) {
-          console.error('Session error:', sessionError)
-          setError('Failed to get session')
-          return
-        }
-
-        if (!mounted) return
-
-        if (session?.user) {
-          setUser(session.user)
-          await withTimeout(
-            fetchProfile(session.user.id),
-            10000,
-            'Profile request timed out'
-          )
+        if (mounted) {
+          setUser(authResponse.user || null)
+          setProfile(authResponse.profile || null)
+          if (authResponse.error && !authResponse.user) {
+            setError(authResponse.error)
+          }
         } else {
-          setUser(null)
-          setProfile(null)
+          if (mounted) {
+            setUser(null)
+            setProfile(null)
+          }
         }
+
       } catch (error: any) {
         console.error('Error initializing auth:', error)
         if (mounted) {
-          setError(error?.message || 'Failed to initialize authentication')
+          // Implement retry logic
+          if (retryCountRef.current < maxRetries) {
+            retryCountRef.current++
+            console.log(`Retrying auth initialization (${retryCountRef.current}/${maxRetries})`)
+            setTimeout(() => initializeAuth(), 2000 * retryCountRef.current)
+            return
+          }
+          
+          setError(error?.message || 'Authentication service unavailable')
           setUser(null)
           setProfile(null)
         }
@@ -153,29 +99,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    initializeAuthRef.current = initializeAuth
     initializeAuth()
 
+    // Listen for auth state changes from Supabase client
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
-      setError(null)
-
-      try {
-        if (event === 'SIGNED_IN' && session?.user) {
-          setUser(session.user)
-          await fetchProfile(session.user.id)
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null)
-          setProfile(null)
-        }
-      } catch (error) {
-        console.error('Auth state change error:', error)
-        if (mounted) {
-          setError('Authentication error occurred')
-        }
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setProfile(null)
+        setError(null)
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        // Refresh session data through edge function
+        initializeAuth()
       }
     })
 
@@ -186,9 +124,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [])
 
   const retryAuth = () => {
+    retryCountRef.current = 0
     setError(null)
     setLoading(true)
-    initializeAuthRef.current?.()
+    // Re-run initialization
+    setTimeout(() => window.location.reload(), 100)
   }
 
   const signIn = async (email: string, password: string) => {
@@ -196,12 +136,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-      if (error) throw error
-    } catch (error) {
+      const authResponse = await AuthService.signIn(email, password)
+      
+      if (!authResponse.success) {
+        throw new Error(authResponse.error || 'Sign in failed')
+      }
+
+      // Update local state
+      setUser(authResponse.user)
+      setProfile(authResponse.profile)
+      
+      // Also update Supabase client session
+      if (authResponse.session) {
+        await supabase.auth.setSession(authResponse.session)
+      }
+      
+    } catch (error: any) {
+      setError(error.message)
       throw error
     } finally {
       setLoading(false)
@@ -219,34 +170,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true)
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            role: role
-          }
-        }
+      const authResponse = await AuthService.signUp(email, password, {
+        first_name: firstName,
+        last_name: lastName,
+        role: role
       })
 
-      if (error) throw error
-
-      if (data.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email,
-            first_name: firstName,
-            last_name: lastName,
-            role
-          })
-
-        if (profileError) throw profileError
+      if (!authResponse.success) {
+        throw new Error(authResponse.error || 'Sign up failed')
       }
-    } catch (error) {
+      
+      // Update local state if user was created
+      if (authResponse.user) {
+        setUser(authResponse.user)
+      }
+      
+    } catch (error: any) {
+      setError(error.message)
       throw error
     } finally {
       setLoading(false)
@@ -255,8 +195,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     setError(null)
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    
+    try {
+      const authResponse = await AuthService.signOut()
+      if (!authResponse.success && authResponse.error) {
+        throw new Error(authResponse.error)
+      }
+    } catch (error: any) {
+      console.error('Sign out error:', error)
+      // Don't throw error for sign out, just log it
+    }
   }
 
   return (

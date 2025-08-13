@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { CaseFormulation } from './CaseFormulation'
@@ -88,17 +89,6 @@ export const CaseManagement: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [dischargeNote, setDischargeNote] = useState('')
   const { profile } = useAuth()
-
-  useEffect(() => {
-    if (profile) {
-      fetchCaseFiles()
-    }
-  }, [profile])
-
-
-  useEffect(() => {
-    setDischargeNote(selectedCase?.dischargeNotes || '')
-  }, [selectedCase])
 
   const fetchCaseFiles = async () => {
     if (!profile) return []
