@@ -1,6 +1,7 @@
 import React from 'react'
 import { useAuth } from '../context/AuthContext'
 import { LogOut, Brain } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -9,6 +10,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children, title }) => {
   const { profile, signOut } = useAuth()
+  const profileRoute = profile?.role === 'therapist' ? '/therapist/profile' : '/client/profile'
 
   const handleSignOut = async () => {
     try {
@@ -36,17 +38,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, title }) => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-gray-700">
-                  <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                    <span className="text-xs font-medium text-gray-600">
-                      {profile?.first_name?.[0]}{profile?.last_name?.[0]}
-                    </span>
-                  </div>
-                  <div className="hidden sm:block">
-                    <span>{profile?.first_name} {profile?.last_name}</span>
-                  </div>
+              <Link
+                to={profileRoute}
+                className="flex items-center space-x-2 text-sm text-gray-700"
+                tabIndex={0}
+                aria-label="Profile"
+              >
+                <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-medium text-gray-600">
+                    {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+                  </span>
                 </div>
-              
+                <div className="hidden sm:block">
+                  <span>{profile?.first_name} {profile?.last_name}</span>
+                </div>
+              </Link>
+
               <button
                 onClick={handleSignOut}
                 className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-2 text-xs sm:text-sm text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
