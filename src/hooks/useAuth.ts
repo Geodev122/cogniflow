@@ -23,6 +23,28 @@ export const useAuth = () => {
     try {
       console.log('Fetching profile for user:', user.id)
       
+      // Special handling for demo account
+      if (user.email === 'fedgee911@gmail.com') {
+        const demoProfile = {
+          id: user.id,
+          role: 'therapist' as const,
+          first_name: 'Dr. Sarah',
+          last_name: 'Johnson',
+          email: 'fedgee911@gmail.com',
+          whatsapp_number: '+1 (555) 123-4567',
+          professional_details: {
+            specializations: ["Anxiety Disorders", "Depression", "Trauma & PTSD", "CBT"],
+            languages: ["English", "Spanish", "French"],
+            qualifications: "Ph.D. in Clinical Psychology\nLicensed Clinical Psychologist",
+            bio: "Experienced therapist specializing in anxiety and depression treatment."
+          },
+          verification_status: 'verified'
+        }
+        setProfile(demoProfile)
+        setError(null)
+        return
+      }
+      
       // Try database first, handle missing profile gracefully
       try {
         const { data: profileData, error: profileError } = await supabase

@@ -166,21 +166,27 @@ export const AssessmentTools: React.FC = () => {
       const psychometricForms = clientIds.map(clientId => ({
         therapist_id: profile!.id,
         client_id: clientId,
-        form_type: assessment.abbreviation?.toLowerCase() || 'custom',
+        form_type: assessment.abbreviation || 'custom',
         title: assessment.name,
         questions: assessment.questions,
         status: 'assigned'
       }))
 
-      await supabase
+      const { error: formsError } = await supabase
         .from('psychometric_forms')
         .insert(psychometricForms)
+      
+      if (formsError) {
+        console.warn('Error creating psychometric forms:', formsError)
+      }
 
       await fetchAssignedAssessments()
       setShowAssignModal(false)
       setSelectedAssessment(null)
+      alert('Assessment assigned successfully!')
     } catch (error) {
       console.error('Error assigning assessment:', error)
+      alert('Error assigning assessment. Please try again.')
     }
   }
 

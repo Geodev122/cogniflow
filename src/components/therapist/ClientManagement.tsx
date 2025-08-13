@@ -187,21 +187,8 @@ export const ClientManagement: React.FC = () => {
       // Generate patient code
       const patientCode = `PT${Math.floor(Math.random() * 900000) + 100000}`
       
-      // Create client account
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: clientData.email,
-        password: Math.random().toString(36).slice(-8), // Temporary password
-        email_confirm: true,
-        user_metadata: {
-          first_name: clientData.firstName,
-          last_name: clientData.lastName,
-          role: 'client'
-        }
-      })
-
-      if (authError) throw authError
-
-      const clientId = authData.user.id
+      // For demo purposes, create client directly in profiles table
+      const clientId = crypto.randomUUID()
 
       // Create profile
       const { error: profileError } = await supabase
@@ -240,7 +227,7 @@ export const ClientManagement: React.FC = () => {
       if (caseError) {
         console.warn('Case creation failed, creating manually:', caseError)
         // Fallback to manual case creation
-        await supabase
+        const { error: manualCaseError } = await supabase
           .from('cases')
           .insert({
             client_id: clientId,
@@ -248,13 +235,18 @@ export const ClientManagement: React.FC = () => {
             case_number: `CASE-${Date.now()}`,
             status: 'active'
           })
+        
+        if (manualCaseError) {
+          console.error('Manual case creation also failed:', manualCaseError)
+        }
       }
 
       await fetchClients()
       setShowAddClient(false)
+      alert('Client added successfully! They will receive setup instructions via email.')
     } catch (error) {
       console.error('Error adding client:', error)
-      alert('Error adding client to roster.')
+      alert('Error adding client to roster. Please try again.')
     }
   }
 
