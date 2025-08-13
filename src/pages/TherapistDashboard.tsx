@@ -21,9 +21,7 @@ import {
   Menu,
   X,
   User,
-  TrendingUp,
-  Building,
-  ChevronLeft
+  TrendingUp
 } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 
@@ -35,6 +33,8 @@ const CommunicationTools = React.lazy(() => import('../components/therapist/Comm
 const DocumentationCompliance = React.lazy(() => import('../components/therapist/DocumentationCompliance').then(m => ({ default: m.DocumentationCompliance })))
 const ResourceLibrary = React.lazy(() => import('../components/therapist/ResourceLibrary').then(m => ({ default: m.ResourceLibrary })))
 const PracticeManagement = React.lazy(() => import('../components/therapist/PracticeManagement').then(m => ({ default: m.PracticeManagement })))
+const AssessmentTools = React.lazy(() => import('../components/therapist/AssessmentTools').then(m => ({ default: m.AssessmentTools })))
+const WorksheetManagement = React.lazy(() => import('../components/therapist/WorksheetManagement').then(m => ({ default: m.WorksheetManagement })))
 
 interface DashboardStats {
   totalClients: number
@@ -233,123 +233,68 @@ export const TherapistDashboard: React.FC = () => {
     setProfileLoading(true)
     setProfileError(null)
 
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', profile.id)
-        .single()
+    const { data, error } = await supabase.rpc('get_therapist_profile', { p_user_id: profile.id })
 
-      if (error) {
-        setProfileError(error.message)
-        setTherapistProfile(null)
-      } else {
-        // Build therapist profile from database data
-        const profileData: TherapistProfileData = {
-          id: data.id,
-          fullName: `${data.first_name} ${data.last_name}`,
-          email: data.email,
-          whatsappNumber: data.whatsapp_number || '',
-          specializations: data.professional_details?.specializations || [],
-          languages: data.professional_details?.languages || [],
-          qualifications: data.professional_details?.qualifications || '',
-          bio: data.professional_details?.bio || '',
-          practiceLocations: data.professional_details?.practice_locations || [],
-          verificationStatus: data.verification_status || 'pending',
-          membershipStatus: 'pending', // This would come from a separate membership table
-          joinDate: data.created_at,
-          stats: {
-            totalClients: stats.totalClients,
-            yearsExperience: 0, // This would be calculated from professional_details
-            rating: 0, // This would come from reviews
-            reviewCount: 0,
-            responseTime: 'N/A'
-          }
+    if (error) {
+      setProfileError(error.message)
+      setTherapistProfile(null)
+    } else {
+      // Ensure stats object exists with default values
+      const profileData = data as TherapistProfileData
+      if (profileData) {
+        // Ensure all required properties have default values
+        profileData.stats = profileData.stats || {
+          totalClients: 0,
+          yearsExperience: 0,
+          rating: 0,
+          reviewCount: 0,
+          responseTime: 'N/A'
         }
-        setTherapistProfile(profileData)
+        
+        // Ensure array properties are initialized
+        profileData.specializations = profileData.specializations || []
+        profileData.languages = profileData.languages || []
+        profileData.practiceLocations = profileData.practiceLocations || []
+        
+        // Ensure string properties are initialized
+        profileData.fullName = profileData.fullName || ''
+        profileData.whatsappNumber = profileData.whatsappNumber || ''
+        profileData.email = profileData.email || ''
+        profileData.qualifications = profileData.qualifications || ''
+        profileData.bio = profileData.bio || ''
+        profileData.joinDate = profileData.joinDate || ''
+        profileData.verificationStatus = profileData.verificationStatus || 'pending'
+        profileData.membershipStatus = profileData.membershipStatus || 'pending'
       }
-    } catch (error) {
-      console.error('Error fetching therapist profile:', error)
-      setProfileError('Failed to load profile')
-    } finally {
-      setProfileLoading(false)
-    }
-  }, [profile, stats.totalClients])
-
-  // Calculate TheraWay profile completion based on onboarding steps
-  const calculateProfileCompletion = useCallback(() => {
-    if (!profile?.professional_details) {
-      setProfileCompletion(0)
-      return
+      setTherapistProfile(profileData)
     }
 
-    let completed = 0
-    const details = profile.professional_details
-
-    // Step 1: Basic Info (name, profile picture, whatsapp)
-    if (profile.first_name && profile.last_name && profile.whatsapp_number) {
-      completed += 1
-    }
-
-    // Step 2: Expertise (specializations, languages, qualifications)
-    if (details.specializations?.length > 0 && details.languages?.length > 0 && details.qualifications) {
-      completed += 1
-    }
-
-    // Step 3: Story (bio with minimum length)
-    if (details.bio && details.bio.length >= 150) {
-      completed += 1
-    }
-
-    // Step 4: Practice Details (locations)
-    if (details.practice_locations?.length > 0 && details.practice_locations.every((loc: any) => loc.address)) {
-      completed += 1
-    }
-
-    // Step 5: Verification (licenses)
-    if (details.licenses?.length > 0 && details.licenses.every((license: any) => license.name && license.country)) {
-      completed += 1
-    }
-
-    // Step 6: Membership (verification status)
-    if (profile.verification_status === 'verified') {
-      completed += 1
-    }
-
-    const percentage = Math.round((completed / 6) * 100)
-    setProfileCompletion(percentage)
+    setProfileLoading(false)
   }, [profile])
 
   useEffect(() => {
     if (profile) {
       fetchDashboardStats()
-      calculateProfileCompletion()
+      // Calculate profile completion based on available data
+      let completion = 0
+      if (profile.whatsapp_number) completion += 33
+      if (profile.professional_details) completion += 33
+      if (profile.verification_status) completion += 34
+      setProfileCompletion(completion)
       fetchInsights()
       fetchTherapistProfile()
     }
-  }, [profile, fetchDashboardStats, calculateProfileCompletion, fetchInsights, fetchTherapistProfile])
+  }, [profile, fetchDashboardStats, fetchInsights, fetchTherapistProfile])
 
   const tabs = useMemo(() => [
-    // Overview - Standalone
-    { id: 'overview', name: 'Overview', icon: Target, group: 'overview', color: 'blue' },
-    
-    // Client Care Group
-    { id: 'clients', name: 'Client Management', icon: Users, group: 'client-care', color: 'green' },
-    { id: 'cases', name: 'Case Management', icon: FileText, group: 'client-care', color: 'green' },
-    { id: 'sessions', name: 'Session Management', icon: Calendar, group: 'client-care', color: 'green' },
-    
-    // Resource Library - Standalone
-    { id: 'resources', name: 'Resource Library', icon: Library, group: 'resources', color: 'purple' },
-    
-    // Communication & Archive Group
-    { id: 'communication', name: 'Communication', icon: MessageSquare, group: 'communication', color: 'orange' },
-    { id: 'archive', name: 'Archive', icon: FileText, group: 'communication', color: 'orange' },
-    
-    // Clinic Rental - Standalone
-    { id: 'clinic-rental', name: 'Clinic Rental', icon: Building, group: 'clinic', color: 'teal' },
-    
-    // Practice Management - Standalone
-    { id: 'practice', name: 'Practice Management', icon: BarChart3, group: 'practice', color: 'indigo' },
+    { id: 'overview', name: 'Overview', icon: Target },
+    { id: 'clients', name: 'Client Management', icon: Users },
+    { id: 'cases', name: 'Case Management', icon: FileText },
+    { id: 'resources', name: 'Resource Library', icon: Library },
+    { id: 'sessions', name: 'Session Management', icon: Calendar },
+    { id: 'communication', name: 'Communication', icon: MessageSquare },
+    { id: 'documentation', name: 'Documentation', icon: FileText },
+    { id: 'practice', name: 'Practice Management', icon: BarChart3 },
   ], [])
 
   if (profile && profile.role !== 'therapist') {
@@ -359,81 +304,15 @@ export const TherapistDashboard: React.FC = () => {
   const handleOnboardingComplete = (data: unknown) => {
     console.log('Onboarding completed:', data)
     setShowOnboardingModal(false)
-    calculateProfileCompletion()
+    if (profile) {
+      // Calculate profile completion based on available data
+      let completion = 0
+      if (profile.whatsapp_number) completion += 33
+      if (profile.professional_details) completion += 33
+      if (profile.verification_status) completion += 34
+      setProfileCompletion(completion)
+    }
   }
-
-  const renderClinicRental = () => (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-8 rounded-xl shadow-lg">
-        <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-            <Building className="w-8 h-8 text-white" />
-          </div>
-          <div>
-            <h2 className="text-3xl font-bold mb-2">Clinic Rental Network</h2>
-            <p className="text-purple-100 text-lg">Find and book professional therapy spaces</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Coming Soon Content */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-        <div className="text-center">
-          <div className="w-24 h-24 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Building className="w-12 h-12 text-purple-600" />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-4">Coming Soon</h3>
-          <p className="text-gray-600 text-lg mb-8 max-w-2xl mx-auto">
-            We're building a comprehensive clinic rental network to help therapists find professional spaces for their practice.
-          </p>
-
-          {/* Features Preview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-purple-50 p-6 rounded-lg">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Calendar className="w-6 h-6 text-purple-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Flexible Booking</h4>
-              <p className="text-gray-600 text-sm">Book therapy rooms by the hour, day, or month</p>
-            </div>
-            <div className="bg-blue-50 p-6 rounded-lg">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-6 h-6 text-blue-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Verified Spaces</h4>
-              <p className="text-gray-600 text-sm">All locations are professionally verified and equipped</p>
-            </div>
-            <div className="bg-green-50 p-6 rounded-lg">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Target className="w-6 h-6 text-green-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Prime Locations</h4>
-              <p className="text-gray-600 text-sm">Convenient locations in major cities</p>
-            </div>
-          </div>
-
-          {/* Waitlist Signup */}
-          <div className="bg-gray-50 p-6 rounded-lg max-w-md mx-auto">
-            <h4 className="font-semibold text-gray-900 mb-4">Join the Waitlist</h4>
-            <div className="space-y-3">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              />
-              <button className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
-                Notify Me When Available
-              </button>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Be the first to know when clinic rental becomes available in your area
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
 
   const renderOverview = () => (
     <div className="space-y-6">
@@ -452,10 +331,7 @@ export const TherapistDashboard: React.FC = () => {
           <div className="flex items-center space-x-2">
             <div className="w-16 h-2 bg-gray-200 rounded-full">
               <div
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  profileCompletion === 100 ? 'bg-green-500' : 
-                  profileCompletion >= 50 ? 'bg-blue-500' : 'bg-amber-500'
-                }`}
+                className="h-2 bg-amber-500 rounded-full transition-all duration-300"
                 style={{ width: `${profileCompletion}%` }}
               ></div>
             </div>
@@ -463,70 +339,24 @@ export const TherapistDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-2 md:gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="flex items-center space-x-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-              profile?.first_name && profile?.last_name && profile?.whatsapp_number ? 'bg-green-500' : 'bg-gray-300'
-            }`}>
-              {profile?.first_name && profile?.last_name && profile?.whatsapp_number && <CheckCircle className="w-3 h-3 text-white" />}
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profile?.whatsapp_number ? 'bg-green-500' : 'bg-gray-300'}`}>
+              {profile?.whatsapp_number && <CheckCircle className="w-3 h-3 text-white" />}
             </div>
-            <span className={`text-xs sm:text-sm ${
-              profile?.first_name && profile?.last_name && profile?.whatsapp_number ? 'text-gray-700' : 'text-gray-500'
-            }`}>Basic Info</span>
+            <span className={`text-sm ${profile?.whatsapp_number ? 'text-gray-700' : 'text-gray-500'}`}>Basic Information</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-              profile?.professional_details?.specializations?.length > 0 && 
-              profile?.professional_details?.languages?.length > 0 && 
-              profile?.professional_details?.qualifications ? 'bg-green-500' : 'bg-gray-300'
-            }`}>
-              {profile?.professional_details?.specializations?.length > 0 && 
-               profile?.professional_details?.languages?.length > 0 && 
-               profile?.professional_details?.qualifications && <CheckCircle className="w-3 h-3 text-white" />}
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profile?.professional_details ? 'bg-green-500' : 'bg-gray-300'}`}>
+              {profile?.professional_details && <CheckCircle className="w-3 h-3 text-white" />}
             </div>
-            <span className={`text-xs sm:text-sm ${
-              profile?.professional_details?.specializations?.length > 0 ? 'text-gray-700' : 'text-gray-500'
-            }`}>Expertise</span>
+            <span className={`text-sm ${profile?.professional_details ? 'text-gray-700' : 'text-gray-500'}`}>Professional Details</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-              profile?.professional_details?.bio && profile?.professional_details.bio.length >= 150 ? 'bg-green-500' : 'bg-gray-300'
-            }`}>
-              {profile?.professional_details?.bio && profile?.professional_details.bio.length >= 150 && <CheckCircle className="w-3 h-3 text-white" />}
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profile?.verification_status ? 'bg-green-500' : 'bg-gray-300'}`}>
+              {profile?.verification_status && <CheckCircle className="w-3 h-3 text-white" />}
             </div>
-            <span className={`text-xs sm:text-sm ${
-              profile?.professional_details?.bio && profile?.professional_details.bio.length >= 150 ? 'text-gray-700' : 'text-gray-500'
-            }`}>Story</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-              profile?.professional_details?.practice_locations?.length > 0 ? 'bg-green-500' : 'bg-gray-300'
-            }`}>
-              {profile?.professional_details?.practice_locations?.length > 0 && <CheckCircle className="w-3 h-3 text-white" />}
-            </div>
-            <span className={`text-xs sm:text-sm ${
-              profile?.professional_details?.practice_locations?.length > 0 ? 'text-gray-700' : 'text-gray-500'
-            }`}>Practice</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-              profile?.professional_details?.licenses?.length > 0 ? 'bg-green-500' : 'bg-gray-300'
-            }`}>
-              {profile?.professional_details?.licenses?.length > 0 && <CheckCircle className="w-3 h-3 text-white" />}
-            </div>
-            <span className={`text-xs sm:text-sm ${
-              profile?.professional_details?.licenses?.length > 0 ? 'text-gray-700' : 'text-gray-500'
-            }`}>Verification</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
-              profile?.verification_status === 'verified' ? 'bg-green-500' : 'bg-gray-300'
-            }`}>
-              {profile?.verification_status === 'verified' && <CheckCircle className="w-3 h-3 text-white" />}
-            </div>
-            <span className={`text-xs sm:text-sm ${
-              profile?.verification_status === 'verified' ? 'text-gray-700' : 'text-gray-500'
-            }`}>Membership</span>
+            <span className={`text-sm ${profile?.verification_status ? 'text-gray-700' : 'text-gray-500'}`}>Verification</span>
           </div>
         </div>
         
@@ -536,14 +366,10 @@ export const TherapistDashboard: React.FC = () => {
           </p>
           <button
             onClick={() => setShowOnboardingModal(true)}
-            className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
-              profileCompletion === 100 
-                ? 'bg-green-600 hover:bg-green-700 text-white' 
-                : 'bg-blue-600 hover:bg-blue-700 text-white'
-            }`}
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <User className="w-4 h-4 mr-2" />
-            {profileCompletion === 100 ? 'View Profile' : 'Complete Profile'}
+            Complete Profile
           </button>
         </div>
       </div>
@@ -816,6 +642,7 @@ export const TherapistDashboard: React.FC = () => {
     </div>
   )
 
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
@@ -838,8 +665,6 @@ export const TherapistDashboard: React.FC = () => {
             <ResourceLibrary />
           </React.Suspense>
         )
-      case 'clinic-rental':
-        return renderClinicRental()
       case 'sessions':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
@@ -853,7 +678,6 @@ export const TherapistDashboard: React.FC = () => {
           </React.Suspense>
         )
       case 'documentation':
-      case 'archive':
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <DocumentationCompliance />
@@ -871,56 +695,14 @@ export const TherapistDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200 relative z-30">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center justify-center w-10 h-10 bg-blue-600 rounded-lg">
-                <Brain className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg sm:text-xl font-semibold text-gray-900">CogniFlow</h1>
-                <p className="text-xs sm:text-sm text-gray-500">Therapist Portal</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-gray-700">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-medium text-blue-600">
-                    {profile?.first_name?.[0]}{profile?.last_name?.[0]}
-                  </span>
-                </div>
-                <div className="hidden sm:block">
-                  <span>{profile?.first_name} {profile?.last_name}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex h-[calc(100vh-4rem)]">
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden fixed top-1/2 left-2 transform -translate-y-1/2 z-50 w-8 h-12 bg-white shadow-lg border border-gray-200 rounded-r-lg flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all"
-        >
-          {mobileMenuOpen ? (
-            <ChevronLeft className="w-4 h-4" />
-          ) : (
-            <ChevronRight className="w-4 h-4" />
-          )}
-        </button>
-
-        {/* Sidebar - Desktop & Tablet */}
+    <Layout>
+      <div className="flex h-screen bg-gray-50">
+        {/* Sidebar - Desktop */}
         <div className={`hidden md:flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ${
           sidebarCollapsed ? 'w-16' : 'w-64'
         }`}>
           {/* Sidebar Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 h-16">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
             {!sidebarCollapsed && (
               <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
             )}
@@ -931,78 +713,14 @@ export const TherapistDashboard: React.FC = () => {
               {sidebarCollapsed ? (
                 <ChevronRight className="w-5 h-5 text-gray-500" />
               ) : (
-                <ChevronLeft className="w-5 h-5 text-gray-500" />
+                <Menu className="w-5 h-5 text-gray-500" />
               )}
             </button>
           </div>
 
           {/* Sidebar Navigation */}
-          <nav className="flex-1 p-4 overflow-y-auto">
-            {/* Group tabs by category */}
-            {Object.entries(
-              tabs.reduce((groups, tab) => {
-                if (!groups[tab.group]) groups[tab.group] = []
-                groups[tab.group].push(tab)
-                return groups
-              }, {} as Record<string, typeof tabs>)
-            ).map(([groupName, groupTabs], groupIndex) => (
-              <div key={groupName} className={groupIndex > 0 ? 'mt-6' : ''}>
-                {/* Group Separator */}
-                {groupIndex > 0 && !sidebarCollapsed && (
-                  <div className="border-t border-gray-200 mb-4"></div>
-                )}
-                
-                {/* Group Label */}
-                {!sidebarCollapsed && groupTabs.length > 1 && (
-                  <div className="px-2 mb-2">
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                      {groupName === 'client-care' ? 'Client Care' : 
-                       groupName === 'communication' ? 'Communication & Archive' :
-                       groupName === 'resources' ? 'Resources' :
-                       groupName === 'clinic' ? 'Services' :
-                       groupName === 'practice' ? 'Practice' : 
-                       groupName}
-                    </span>
-                  </div>
-                )}
-                
-                {/* Group Tabs */}
-                <div className="space-y-1">
-                  {groupTabs.map((tab) => {
-                    const Icon = tab.icon
-                    const isActive = activeTab === tab.id
-                    const colorClasses = {
-                      blue: isActive ? 'bg-blue-50 text-blue-700 border-blue-200' : 'hover:bg-blue-50 hover:text-blue-700',
-                      green: isActive ? 'bg-green-50 text-green-700 border-green-200' : 'hover:bg-green-50 hover:text-green-700',
-                      purple: isActive ? 'bg-purple-50 text-purple-700 border-purple-200' : 'hover:bg-purple-50 hover:text-purple-700',
-                      orange: isActive ? 'bg-orange-50 text-orange-700 border-orange-200' : 'hover:bg-orange-50 hover:text-orange-700',
-                      teal: isActive ? 'bg-teal-50 text-teal-700 border-teal-200' : 'hover:bg-teal-50 hover:text-teal-700',
-                      indigo: isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'hover:bg-indigo-50 hover:text-indigo-700'
-                    }
-                    
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all ${
-                          isActive
-                            ? `${colorClasses[tab.color as keyof typeof colorClasses]} border`
-                            : `text-gray-600 ${colorClasses[tab.color as keyof typeof colorClasses]}`
-                        }`}
-                        title={sidebarCollapsed ? tab.name : undefined}
-                      >
-                        <Icon className={`w-5 h-5 flex-shrink-0 ${
-                          isActive ? `text-${tab.color}-600` : 'text-gray-400'
-                        }`} />
-                        {!sidebarCollapsed && (
-                          <span className="font-medium text-sm truncate">{tab.name}</span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            ))}
+          <nav className="flex-1 p-4 space-y-2">
+            {tabs.map((tab) => {
               const Icon = tab.icon
               const isActive = activeTab === tab.id
               return (
@@ -1020,7 +738,7 @@ export const TherapistDashboard: React.FC = () => {
                     isActive ? 'text-blue-600' : 'text-gray-400'
                   }`} />
                   {!sidebarCollapsed && (
-                    <span className="font-medium text-sm truncate">{tab.name}</span>
+                    <span className="font-medium text-sm">{tab.name}</span>
                   )}
                 </button>
               )
@@ -1028,12 +746,22 @@ export const TherapistDashboard: React.FC = () => {
           </nav>
         </div>
 
+        {/* Mobile Menu Button */}
+        <div className="md:hidden fixed top-4 left-4 z-50">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-lg bg-white shadow-lg border border-gray-200 text-gray-600 hover:text-gray-900"
+          >
+            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+
         {/* Mobile Navigation Overlay */}
         {mobileMenuOpen && (
           <div className="md:hidden fixed inset-0 z-40">
             <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setMobileMenuOpen(false)} />
-            <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-xl flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-gray-200 h-16">
+            <div className="fixed inset-y-0 left-0 w-64 bg-white shadow-xl">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900">Navigation</h2>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
@@ -1042,71 +770,8 @@ export const TherapistDashboard: React.FC = () => {
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
               </div>
-              <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-                {Object.entries(
-                  tabs.reduce((groups, tab) => {
-                    if (!groups[tab.group]) groups[tab.group] = []
-                    groups[tab.group].push(tab)
-                    return groups
-                  }, {} as Record<string, typeof tabs>)
-                ).map(([groupName, groupTabs], groupIndex) => (
-                  <div key={groupName} className={groupIndex > 0 ? 'mt-6' : ''}>
-                    {/* Group Separator */}
-                    {groupIndex > 0 && (
-                      <div className="border-t border-gray-200 mb-4"></div>
-                    )}
-                    
-                    {/* Group Label */}
-                    {groupTabs.length > 1 && (
-                      <div className="px-2 mb-3">
-                        <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                          {groupName === 'client-care' ? 'Client Care' : 
-                           groupName === 'communication' ? 'Communication & Archive' :
-                           groupName === 'resources' ? 'Resources' :
-                           groupName === 'clinic' ? 'Services' :
-                           groupName === 'practice' ? 'Practice' : 
-                           groupName}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {/* Group Tabs */}
-                    <div className="space-y-1">
-                      {groupTabs.map((tab) => {
-                        const Icon = tab.icon
-                        const isActive = activeTab === tab.id
-                        const colorClasses = {
-                          blue: isActive ? 'bg-blue-50 text-blue-700 border-blue-200' : 'hover:bg-blue-50 hover:text-blue-700',
-                          green: isActive ? 'bg-green-50 text-green-700 border-green-200' : 'hover:bg-green-50 hover:text-green-700',
-                          purple: isActive ? 'bg-purple-50 text-purple-700 border-purple-200' : 'hover:bg-purple-50 hover:text-purple-700',
-                          orange: isActive ? 'bg-orange-50 text-orange-700 border-orange-200' : 'hover:bg-orange-50 hover:text-orange-700',
-                          teal: isActive ? 'bg-teal-50 text-teal-700 border-teal-200' : 'hover:bg-teal-50 hover:text-teal-700',
-                          indigo: isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'hover:bg-indigo-50 hover:text-indigo-700'
-                        }
-                        
-                        return (
-                          <button
-                            key={tab.id}
-                            onClick={() => {
-                              setActiveTab(tab.id)
-                              setMobileMenuOpen(false)
-                            }}
-                            className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg transition-all ${
-                              isActive
-                                ? `${colorClasses[tab.color as keyof typeof colorClasses]} border`
-                                : `text-gray-600 ${colorClasses[tab.color as keyof typeof colorClasses]}`
-                            }`}
-                          >
-                            <Icon className={`w-5 h-5 ${
-                              isActive ? `text-${tab.color}-600` : 'text-gray-400'
-                            }`} />
-                            <span className="font-medium text-sm">{tab.name}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))}
+              <nav className="p-4 space-y-2">
+                {tabs.map((tab) => {
                   const Icon = tab.icon
                   const isActive = activeTab === tab.id
                   return (
@@ -1136,11 +801,11 @@ export const TherapistDashboard: React.FC = () => {
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 md:p-6">
+          <div className="flex-1 overflow-y-auto p-6">
             {renderTabContent()}
           </div>
         </div>
       </div>
-    </div>
+    </Layout>
   )
 }

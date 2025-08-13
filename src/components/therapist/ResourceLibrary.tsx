@@ -255,8 +255,8 @@ export const ResourceLibrary: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 overflow-x-auto">
-        <nav className="-mb-px flex space-x-4 md:space-x-8 min-w-max px-2 md:px-0">
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
           {[
             { id: 'all', name: 'All Resources', icon: Library },
             { id: 'assessments', name: 'Assessments', icon: ClipboardList },
@@ -270,13 +270,13 @@ export const ResourceLibrary: React.FC = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center space-x-1 md:space-x-2 py-2 px-2 md:px-1 border-b-2 font-medium text-xs md:text-sm whitespace-nowrap ${
+                className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === tab.id
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <Icon className="w-4 h-4 md:w-5 md:h-5 flex-shrink-0" />
+                <Icon className="w-5 h-5" />
                 <span>{tab.name}</span>
               </button>
             )
@@ -286,19 +286,15 @@ export const ResourceLibrary: React.FC = () => {
 
       {/* Tab Content */}
       {activeTab === 'assessments' && (
-        <div className="px-2 md:px-0">
-          <AssessmentTools />
-        </div>
+        <AssessmentTools />
       )}
       
       {activeTab === 'worksheets' && (
-        <div className="px-2 md:px-0">
-          <WorksheetManagement />
-        </div>
+        <WorksheetManagement />
       )}
       
       {activeTab === 'exercises' && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="text-center py-12 text-gray-500">
             <Gamepad2 className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Therapeutic Exercises</h3>
@@ -313,7 +309,7 @@ export const ResourceLibrary: React.FC = () => {
         <>
           {/* Filters */}
           <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <input
@@ -321,14 +317,14 @@ export const ResourceLibrary: React.FC = () => {
                   placeholder="Search resources..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Categories</option>
                 <option value="Depression Screening">Depression Screening</option>
@@ -344,7 +340,7 @@ export const ResourceLibrary: React.FC = () => {
               <select
                 value={difficultyFilter}
                 onChange={(e) => setDifficultyFilter(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Levels</option>
                 <option value="beginner">Beginner</option>
@@ -355,7 +351,7 @@ export const ResourceLibrary: React.FC = () => {
               <select
                 value={evidenceFilter}
                 onChange={(e) => setEvidenceFilter(e.target.value)}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Types</option>
                 <option value="evidence-based">Evidence-Based</option>
@@ -365,53 +361,52 @@ export const ResourceLibrary: React.FC = () => {
           </div>
 
           {/* Resources Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredResources.map((resource) => (
-              <div key={resource.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow">
+              <div key={resource.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center space-x-2">
-                    <div className={`p-1.5 sm:p-2 rounded-lg ${getTypeColor(resource.type)}`}>
+                    <div className={`p-2 rounded-lg ${getTypeColor(resource.type)}`}>
                       {getTypeIcon(resource.type)}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900 text-xs sm:text-sm line-clamp-2">{resource.title}</h3>
-                      <p className="text-xs text-gray-600 truncate">{resource.category}</p>
+                      <h3 className="font-semibold text-gray-900 text-sm">{resource.title}</h3>
+                      <p className="text-xs text-gray-600">{resource.category}</p>
                     </div>
                   </div>
                   {resource.evidenceBased && (
-                    <div className="flex items-center space-x-1 text-green-600 flex-shrink-0">
-                      <Award className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span className="text-xs hidden sm:inline">Evidence-Based</span>
+                    <div className="flex items-center space-x-1 text-green-600">
+                      <Award className="w-4 h-4" />
+                      <span className="text-xs">Evidence-Based</span>
                     </div>
                   )}
                 </div>
                 
-                <p className="text-xs sm:text-sm text-gray-600 mb-4 line-clamp-2">{resource.description}</p>
+                <p className="text-sm text-gray-600 mb-4 line-clamp-2">{resource.description}</p>
                 
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2 sm:space-x-4">
+                  <div className="flex items-center space-x-4">
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(resource.difficulty)}`}>
-                      <span className="hidden sm:inline">{resource.difficulty}</span>
-                      <span className="sm:hidden">{resource.difficulty.charAt(0).toUpperCase()}</span>
+                      {resource.difficulty}
                     </span>
                     {resource.duration && (
                       <div className="flex items-center space-x-1 text-gray-500">
-                        <Clock className="w-3 h-3 flex-shrink-0" />
+                        <Clock className="w-3 h-3" />
                         <span className="text-xs">{resource.duration}</span>
                       </div>
                     )}
                   </div>
                   <div className="flex items-center space-x-1 text-gray-500">
-                    <Users className="w-3 h-3 flex-shrink-0" />
+                    <Users className="w-3 h-3" />
                     <span className="text-xs">{resource.usageCount}</span>
                   </div>
                 </div>
                 
-                <div className="flex items-center justify-center mb-4">
+                <div className="flex items-center justify-between mb-4">
                   {renderStarRating(resource.rating)}
                 </div>
                 
-                <div className="flex flex-wrap gap-1 mb-4 min-h-[24px]">
+                <div className="flex flex-wrap gap-1 mb-4">
                   {resource.tags.slice(0, 3).map((tag, index) => (
                     <span key={index} className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
                       {tag}
@@ -424,23 +419,22 @@ export const ResourceLibrary: React.FC = () => {
                   )}
                 </div>
                 
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                <div className="flex space-x-2">
                   <button
                     onClick={() => setSelectedResource(resource)}
-                    className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
-                    <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                    <span className="hidden sm:inline">Preview</span>
-                    <span className="sm:hidden">View</span>
+                    <Eye className="w-4 h-4 mr-1" />
+                    Preview
                   </button>
                   <button
                     onClick={() => {
                       setSelectedResource(resource)
                       setShowAssignModal(true)
                     }}
-                    className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                    className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                   >
-                    <Send className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                    <Send className="w-4 h-4 mr-1" />
                     Assign
                   </button>
                 </div>

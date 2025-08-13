@@ -187,123 +187,74 @@ export const ClientManagement: React.FC = () => {
       // Generate patient code
       const patientCode = `PT${Math.floor(Math.random() * 900000) + 100000}`
       
-      // Create client account using signUp (admin.createUser requires service role)
-      const tempPassword = Math.random().toString(36).slice(-12) + 'A1!'
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Create client account
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email: clientData.email,
-        password: tempPassword,
-        options: {
-          data: {
-            first_name: clientData.firstName,
-            last_name: clientData.lastName,
-            role: 'client'
-          }
+        password: Math.random().toString(36).slice(-8), // Temporary password
+        email_confirm: true,
+        user_metadata: {
+          first_name: clientData.firstName,
+          last_name: clientData.lastName,
+          role: 'client'
         }
       })
 
-      if (authError) {
-        // If user already exists, try to find them
-        const { data: existingUser } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', clientData.email)
-          .single()
-        
-        if (existingUser) {
-          // User exists, just create the relationship
-          const { error: relationError } = await supabase
-            .from('therapist_client_relations')
-            .insert({
-              therapist_id: profile!.id,
-              client_id: existingUser.id
-            })
-          
-          if (relationError && !relationError.message.includes('duplicate')) {
-            throw relationError
-          }
-          
-          await fetchClients()
-          setShowAddClient(false)
-          return
-        }
-        throw authError
-      }
+      if (authError) throw authError
 
-      if (!authData.user) {
-        // Fallback: create profile directly
-        const clientId = crypto.randomUUID()
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: clientId,
-            role: 'client',
+      const clientId = authData.user.id
+
+      // Create profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: clientId,
+          role: 'client',
           first_name: clientData.firstName,
           last_name: clientData.lastName,
-            email: clientData.email,
-            whatsapp_number: clientData.whatsappNumber,
-            patient_code: patientCode,
-            created_by_therapist: profile!.id,
-            password_set: false
-          })
-
-        if (profileError) throw profileError
-
-        // Create therapist-client relation
-        const { error: relationError } = await supabase
-          .from('therapist_client_relations')
-          .insert({
-            therapist_id: profile!.id,
-            client_id: clientId
-          })
-
-        if (relationError) throw relationError
-      } else {
-        const clientId = authData.user.id
-
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: clientId,
-            role: 'client',
-            first_name: clientData.firstName,
-            last_name: clientData.lastName,
-            email: clientData.email,
-            whatsapp_number: clientData.whatsappNumber,
-            patient_code: patientCode,
-            created_by_therapist: profile!.id,
-            password_set: false
-          })
-
-        if (profileError) throw profileError
-
-        // Create therapist-client relation
-        const { error: relationError } = await supabase
-          .from('therapist_client_relations')
-          .insert({
-            therapist_id: profile!.id,
-            client_id: clientId
-          })
-
-        if (relationError) throw relationError
-      }
-
-      // Create case manually
-      const clientId = authData?.user?.id || crypto.randomUUID()
-      await supabase
-        .from('cases')
-        .insert({
-          client_id: clientId,
-          therapist_id: profile!.id,
-          case_number: `CASE-${Date.now()}`,
-          status: 'active'
+          email: clientData.email,
+          whatsapp_number: clientData.whatsappNumber,
+          patient_code: patientCode,
+          created_by_therapist: profile!.id,
+          password_set: false
         })
+
+      if (profileError) throw profileError
+
+      // Create therapist-client relation
+      const { error: relationError } = await supabase
+        .from('therapist_client_relations')
+        .insert({
+          therapist_id: profile!.id,
+          client_id: clientId
+        })
+
+      if (relationError) throw relationError
+
+      // Create case
+      const { data: caseData, error: caseError } = await supabase
+        .rpc('create_case_with_milestone', {
+          p_client_id: clientId,
+          p_therapist_id: profile!.id
+        })
+
+      if (caseError) {
+        console.warn('Case creation failed, creating manually:', caseError)
+        // Fallback to manual case creation
+        await supabase
+          .from('cases')
+          .insert({
+            client_id: clientId,
+            therapist_id: profile!.id,
+            case_number: `CASE-${Date.now()}`,
+            status: 'active'
+          })
+      }
 
       await fetchClients()
       setShowAddClient(false)
     } catch (error) {
       console.error('Error adding client:', error)
-      alert('Error adding client to roster. Please try again.')
+      alert('Error adding client to roster.')
     }
   }
 

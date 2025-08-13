@@ -258,7 +258,7 @@ export const AssessmentTools: React.FC = () => {
     <div className="space-y-6">
       {/* Search and Filters */}
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -267,7 +267,7 @@ export const AssessmentTools: React.FC = () => {
                 placeholder="Search assessments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
           </div>
@@ -276,7 +276,7 @@ export const AssessmentTools: React.FC = () => {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="all">All Categories</option>
               <option value="depression">Depression</option>
@@ -289,12 +289,12 @@ export const AssessmentTools: React.FC = () => {
       </div>
 
       {/* Assessment Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredAssessments.map((assessment) => (
-          <div key={assessment.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow">
+          <div key={assessment.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-sm sm:text-lg font-semibold text-gray-900 line-clamp-2">{assessment.name}</h3>
+                <h3 className="text-lg font-semibold text-gray-900">{assessment.name}</h3>
                 <p className="text-sm text-blue-600 font-medium">{assessment.abbreviation}</p>
               </div>
               <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
@@ -302,26 +302,26 @@ export const AssessmentTools: React.FC = () => {
               </span>
             </div>
             
-            <p className="text-gray-600 text-xs sm:text-sm mb-4 line-clamp-3">{assessment.description}</p>
+            <p className="text-gray-600 text-sm mb-4 line-clamp-3">{assessment.description}</p>
             
             <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
               <span>{assessment.questions.length} questions</span>
               <span>Max score: {assessment.scoring_method.max_score}</span>
             </div>
             
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+            <div className="flex space-x-2">
               <button
                 onClick={() => {
                   setSelectedAssessment(assessment)
                   setShowAssignModal(true)
                 }}
-                className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
               >
-                <Send className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                <Send className="w-4 h-4 mr-1" />
                 Assign
               </button>
-              <button className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-                <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+              <button className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <Eye className="w-4 h-4" />
               </button>
             </div>
           </div>
