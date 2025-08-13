@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Use edge function for session management with timeout
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Authentication request timed out')), 10000)
+        setTimeout(() => reject(new Error('Authentication request timed out')), 20000)
       })
 
       const authPromise = AuthService.getSession()
