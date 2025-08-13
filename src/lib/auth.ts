@@ -1,14 +1,19 @@
 import { supabase } from './supabase'
 
-const EDGE_FUNCTION_BASE_URL = 'https://jichzbnbilngjlqnkebn.supabase.co/functions/v1'
+const EDGE_FUNCTION_BASE_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL
+
+if (!EDGE_FUNCTION_BASE_URL) {
+  console.error('Supabase Functions URL is missing. Please set VITE_SUPABASE_FUNCTIONS_URL in your environment configuration')
+  throw new Error('Missing Supabase Functions URL')
+}
 
 interface AuthResponse {
   success: boolean
-  data?: any
+  data?: unknown
   error?: string
-  user?: any
-  session?: any
-  profile?: any
+  user?: unknown
+  session?: unknown
+  profile?: unknown
   message?: string
 }
 
@@ -19,7 +24,7 @@ interface UserData {
 }
 
 export class AuthService {
-  private static async callAuthFunction(endpoint: string, payload: any = {}, method: string = 'POST'): Promise<AuthResponse> {
+  private static async callAuthFunction(endpoint: string, payload: Record<string, unknown> = {}, method: string = 'POST'): Promise<AuthResponse> {
     try {
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -125,7 +130,7 @@ export class AuthService {
     return this.callAuthFunction('auth/refresh', {}, 'POST')
   }
 
-  static async updateUserMetadata(userId: string, metadata: any): Promise<AuthResponse> {
+  static async updateUserMetadata(userId: string, metadata: Record<string, unknown>): Promise<AuthResponse> {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       
