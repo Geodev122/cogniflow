@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://dfagfmsiqbpyhnklsrqc.supabase.co'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmYWdmbXNpcWJweWhua2xzcnFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQzNjI0NzQsImV4cCI6MjA0OTkzODQ3NH0.YourActualAnonKeyHere'
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables')
@@ -20,7 +20,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     }
   },
   db: {
-    schema: 'public'
+    schema: 'public',
+    // Direct connection configuration
+    host: 'db.dfagfmsiqbpyhnklsrqc.supabase.co',
+    port: 5432,
+    database: 'postgres',
+    user: 'postgres'
   },
   realtime: {
     params: {

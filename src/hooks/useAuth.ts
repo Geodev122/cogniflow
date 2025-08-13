@@ -33,10 +33,15 @@ export const useAuth = () => {
           email: 'fedgee911@gmail.com',
           whatsapp_number: '+1 (555) 123-4567',
           professional_details: {
-            specializations: ["Anxiety Disorders", "Depression", "Trauma & PTSD", "CBT"],
+            specializations: ["Anxiety Disorders", "Depression", "Trauma & PTSD", "CBT", "Mindfulness-Based Therapy"],
             languages: ["English", "Spanish", "French"],
-            qualifications: "Ph.D. in Clinical Psychology\nLicensed Clinical Psychologist",
-            bio: "Experienced therapist specializing in anxiety and depression treatment."
+            qualifications: "Ph.D. in Clinical Psychology\nLicensed Clinical Psychologist (CA #PSY12345)\nCertified CBT Therapist\nEMDR Certified Therapist",
+            bio: "Dr. Sarah Johnson is a licensed clinical psychologist with over 15 years of experience helping individuals overcome anxiety, depression, and trauma. She specializes in evidence-based treatments including Cognitive Behavioral Therapy (CBT) and EMDR.\n\nDr. Johnson believes in creating a warm, supportive environment where clients feel safe to explore their thoughts and feelings. Her approach combines compassion with practical, research-backed techniques to help clients develop lasting coping skills and achieve their therapeutic goals.\n\nShe has extensive experience working with adults facing life transitions, relationship challenges, and mental health concerns. Dr. Johnson is fluent in English, Spanish, and French, allowing her to serve diverse communities.",
+            practice_locations: [
+              {"address": "123 Therapy Lane, Los Angeles, CA 90210", "isPrimary": true},
+              {"address": "456 Wellness Blvd, Beverly Hills, CA 90212", "isPrimary": false}
+            ],
+            years_experience: 15
           },
           verification_status: 'verified'
         }
