@@ -42,83 +42,139 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const retryCountRef = useRef(0)
-  const maxRetries = 3
   const initializingRef = useRef(false)
+  const mountedRef = useRef(true)
 
-  // Direct profile fetching function with enhanced error handling
-  const fetchProfileDirect = async (userId: string): Promise<Profile | null> => {
-    try {
-      console.log('🔍 Fetching profile for user:', userId)
-      
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select(`
-          id, 
-          role, 
-          first_name, 
-          last_name, 
-          email,
-          whatsapp_number,
-          password_set,
-          created_by_therapist,
-          professional_details,
-          verification_status,
-          created_at,
-          updated_at
-        `)
-        .eq('id', userId)
-        .single()
-
-      if (profileError) {
-        console.error('❌ Profile fetch error:', profileError)
+  // Direct profile fetching with timeout and retry
+  const fetchProfileDirect = async (userId: string, retries = 2): Promise<Profile | null> => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        console.log(`🔍 Fetching profile for user: ${userId} (attempt ${attempt + 1}/${retries + 1})`)
         
-        // If profile doesn't exist, try to create one from auth metadata
-        if (profileError.code === 'PGRST116') {
-          console.log('📝 Profile not found, attempting to create from auth metadata...')
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
+        
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select(`
+            id, 
+            role, 
+            first_name, 
+            last_name, 
+            email,
+            whatsapp_number,
+            password_set,
+            created_by_therapist,
+            professional_details,
+            verification_status,
+            created_at,
+            updated_at
+          `)
+          .eq('id', userId)
+          .abortSignal(controller.signal)
+          .single()
+
+        clearTimeout(timeoutId)
+
+        if (profileError) {
+          console.error(`❌ Profile fetch error (attempt ${attempt + 1}):`, profileError)
           
-          const { data: { user: authUser } } = await supabase.auth.getUser()
-          if (authUser?.user_metadata) {
-            const metadata = authUser.user_metadata
+          // If profile doesn't exist, try to create one
+          if (profileError.code === 'PGRST116' && attempt === 0) {
+            console.log('📝 Profile not found, attempting to create...')
             
-            const newProfile = {
-              id: userId,
-              role: metadata.role || 'client',
-              first_name: metadata.first_name || 'Unknown',
-              last_name: metadata.last_name || 'User',
-              email: authUser.email || '',
-              password_set: true
+            const { data: { user: authUser } } = await supabase.auth.getUser()
+            if (authUser?.user_metadata) {
+              const metadata = authUser.user_metadata
+              
+              const newProfile = {
+                id: userId,
+                role: metadata.role || 'client',
+                first_name: metadata.first_name || 'Unknown',
+                last_name: metadata.last_name || 'User',
+                email: authUser.email || '',
+                password_set: true
+              }
+
+              const { data: createdProfile, error: createError } = await supabase
+                .from('profiles')
+                .insert(newProfile)
+                .select()
+                .single()
+
+              if (!createError && createdProfile) {
+                console.log('✅ Profile created successfully:', createdProfile)
+                return createdProfile
+              }
             }
-
-            const { data: createdProfile, error: createError } = await supabase
-              .from('profiles')
-              .insert(newProfile)
-              .select()
-              .single()
-
-            if (createError) {
-              console.error('❌ Failed to create profile:', createError)
-              return null
-            }
-
-            console.log('✅ Profile created successfully:', createdProfile)
-            return createdProfile
           }
+          
+          if (attempt === retries) {
+            throw profileError
+          }
+          
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
+          continue
         }
-        return null
-      }
 
-      console.log('✅ Profile fetched successfully:', profileData)
-      return profileData
-    } catch (error) {
-      console.error('❌ Direct profile fetch error:', error)
-      return null
+        console.log('✅ Profile fetched successfully:', profileData)
+        return profileData
+      } catch (error: any) {
+        console.error(`❌ Profile fetch attempt ${attempt + 1} failed:`, error)
+        
+        if (error.name === 'AbortError') {
+          console.log('⏰ Profile fetch timed out')
+        }
+        
+        if (attempt === retries) {
+          console.error('❌ All profile fetch attempts failed')
+          return null
+        }
+        
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
+      }
+    }
+    
+    return null
+  }
+
+  // Simplified session check with timeout
+  const checkSession = async (): Promise<{ user: User | null; error: any }> => {
+    try {
+      console.log('🔍 Checking session...')
+      
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+      
+      const sessionPromise = supabase.auth.getSession()
+      const result = await Promise.race([
+        sessionPromise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Session check timeout')), 5000)
+        )
+      ]) as any
+
+      clearTimeout(timeoutId)
+      
+      const { data: { session }, error } = result
+      
+      if (error) {
+        console.error('❌ Session check error:', error)
+        return { user: null, error }
+      }
+      
+      console.log('✅ Session check completed:', session?.user?.id || 'No session')
+      return { user: session?.user || null, error: null }
+    } catch (error: any) {
+      console.error('❌ Session check failed:', error)
+      return { user: null, error }
     }
   }
 
   const initializeAuth = async () => {
-    if (initializingRef.current) {
-      console.log('⏳ Auth initialization already in progress...')
+    if (initializingRef.current || !mountedRef.current) {
       return
     }
     
@@ -129,23 +185,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null)
       console.log('🚀 Initializing auth...')
 
-      // Get current session with timeout
-      const sessionPromise = supabase.auth.getSession()
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Session fetch timeout')), 10000)
-      )
-
-      const { data: { session }, error: sessionError } = await Promise.race([
-        sessionPromise,
-        timeoutPromise
-      ]) as any
+      // Check session with timeout
+      const { user: sessionUser, error: sessionError } = await checkSession()
 
       if (sessionError) {
         console.error('❌ Session error:', sessionError)
-        throw new Error(`Session error: ${sessionError.message}`)
+        // Don't throw, just set no user
+        setUser(null)
+        setProfile(null)
+        setError(null) // Clear error for offline mode
+        return
       }
 
-      if (!session?.user) {
+      if (!sessionUser) {
         console.log('ℹ️ No active session found')
         setUser(null)
         setProfile(null)
@@ -153,19 +205,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return
       }
 
-      console.log('✅ Active session found for user:', session.user.id)
-      setUser(session.user)
+      console.log('✅ Active session found for user:', sessionUser.id)
+      setUser(sessionUser)
 
-      // Fetch profile with timeout
-      const profilePromise = fetchProfileDirect(session.user.id)
-      const profileTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 15000)
-      )
-
-      const profileData = await Promise.race([
-        profilePromise,
-        profileTimeoutPromise
-      ]) as Profile | null
+      // Fetch profile with retries
+      const profileData = await fetchProfileDirect(sessionUser.id)
       
       if (profileData) {
         console.log('✅ Profile loaded successfully')
@@ -177,29 +221,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setError('Profile not found. Please complete your registration.')
       }
 
-      // Reset retry count on success
-      retryCountRef.current = 0
-
     } catch (error: any) {
       console.error('❌ Error initializing auth:', error)
       
-      const errorMessage = error?.message || 'Authentication service unavailable'
-      setError(errorMessage)
+      // Set user to null but don't show error for network issues
       setUser(null)
       setProfile(null)
-
-      // Retry logic with exponential backoff
-      if (retryCountRef.current < maxRetries) {
-        retryCountRef.current++
-        const delay = Math.min(2000 * Math.pow(2, retryCountRef.current - 1), 10000)
-        console.log(`🔄 Retrying auth initialization (${retryCountRef.current}/${maxRetries}) in ${delay}ms`)
-
-        setTimeout(() => {
-          initializingRef.current = false
-          initializeAuth()
-        }, delay)
+      
+      // Only show error for non-network issues
+      if (!error.message?.includes('timeout') && !error.message?.includes('fetch')) {
+        setError(error.message || 'Authentication service unavailable')
       } else {
-        console.error('❌ Max retries reached, giving up')
+        setError(null) // Allow offline mode
       }
     } finally {
       setLoading(false)
@@ -219,8 +252,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileData) {
         setProfile(profileData)
         console.log('✅ Profile refreshed successfully')
-      } else {
-        console.warn('⚠️ Profile refresh failed')
       }
     } catch (error) {
       console.error('❌ Error refreshing profile:', error)
@@ -228,53 +259,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   useEffect(() => {
-    let mounted = true
-
-    // Initialize auth on mount
-    if (mounted) {
-      initializeAuth()
-    }
+    mountedRef.current = true
+    
+    // Initialize auth immediately
+    initializeAuth()
 
     // Listen for auth state changes
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return
+      if (!mountedRef.current) return
 
       console.log('🔄 Auth state change:', event, session?.user?.id)
 
-      if (event === 'SIGNED_OUT') {
-        console.log('👋 User signed out')
-        setUser(null)
-        setProfile(null)
-        setError(null)
-      } else if (event === 'SIGNED_IN' && session?.user) {
-        console.log('👋 User signed in:', session.user.id)
-        setUser(session.user)
-        
-        // Fetch fresh profile data
-        const profileData = await fetchProfileDirect(session.user.id)
-        if (profileData) {
-          setProfile(profileData)
+      try {
+        if (event === 'SIGNED_OUT') {
+          console.log('👋 User signed out')
+          setUser(null)
+          setProfile(null)
+          setError(null)
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          console.log('👋 User signed in:', session.user.id)
+          setUser(session.user)
+          
+          // Fetch fresh profile data
+          const profileData = await fetchProfileDirect(session.user.id)
+          if (profileData) {
+            setProfile(profileData)
+          }
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          console.log('🔄 Token refreshed for user:', session.user.id)
+          setUser(session.user)
         }
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        console.log('🔄 Token refreshed for user:', session.user.id)
-        setUser(session.user)
-        if (!profile) {
-          await refreshProfile()
-        }
+      } catch (error) {
+        console.error('❌ Auth state change error:', error)
       }
     })
 
     return () => {
-      mounted = false
+      mountedRef.current = false
       subscription.unsubscribe()
     }
   }, [])
 
   const retryAuth = () => {
     console.log('🔄 Manual auth retry triggered')
-    retryCountRef.current = 0
     setError(null)
     setLoading(true)
     initializingRef.current = false
@@ -311,7 +340,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setProfile(profileData)
         console.log('✅ Profile loaded after sign in')
       } else {
-        throw new Error('Profile not found after sign in')
+        console.warn('⚠️ Profile not found after sign in')
+        setProfile(null)
       }
       
     } catch (error: any) {
