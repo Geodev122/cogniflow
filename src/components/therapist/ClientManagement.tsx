@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { APIService } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
@@ -44,44 +44,33 @@ export const ClientManagement: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [showAddClient, setShowAddClient] = useState(false)
   const [showClientDetails, setShowClientDetails] = useState(false)
-  const PAGE_SIZE = 12
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(searchTerm), 300)
     return () => clearTimeout(handler)
   }, [searchTerm])
 
-  const fetchClients = async ({ pageParam = 0 }: { pageParam?: number }) => {
+  const fetchClients = async () => {
     if (!profile?.id) {
-      return { clients: [], profilesMap: {}, hasMore: false, page: pageParam }
+      return { clients: [], profilesMap: {} }
     }
 
     const data = await APIService.getTherapistClients()
-    return { 
-      clients: data.clients || [], 
-      profilesMap: data.profilesMap || {}, 
-      hasMore: false, 
-      page: pageParam 
-    }
+    return data
   }
 
   const {
     data,
     error,
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage
-  } = useInfiniteQuery({
+    isLoading
+  } = useQuery({
     queryKey: ['clients', profile?.id, debouncedSearch],
     queryFn: fetchClients,
-    getNextPageParam: lastPage => (lastPage.hasMore ? lastPage.page + 1 : undefined),
-    enabled: !!profile?.id,
-    initialPageParam: 0
+    enabled: !!profile?.id
   })
 
-  const clients = data?.pages.flatMap(page => page.clients) ?? []
-  const clientProfiles = Object.assign({}, ...(data?.pages.map(p => p.profilesMap) ?? [])) as Record<string, ClientProfile>
+  const clients = data?.clients ?? []
+  const clientProfiles = data?.profilesMap ?? {} as Record<string, ClientProfile>
 
   useEffect(() => {
     if (!profile?.id) return
@@ -385,18 +374,6 @@ export const ClientManagement: React.FC = () => {
           )
         })}
       </div>
-
-      {hasNextPage && (
-        <div className="flex justify-center mt-6">
-          <button
-            onClick={handleLoadMore}
-            disabled={isFetchingNextPage}
-            className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-          >
-            {isFetchingNextPage ? 'Loading...' : 'Load more'}
-          </button>
-        </div>
-      )}
 
       {filteredClients.length === 0 && (
         <div className="text-center py-12">

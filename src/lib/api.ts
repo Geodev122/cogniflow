@@ -14,29 +14,49 @@ class APIService {
         headers['Authorization'] = `Bearer ${session.access_token}`
       }
 
-      const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace('/rest/v1', '') || ''
-      const functionsUrl = `${baseUrl}/functions/v1`
+      const baseUrl = import.meta.env.VITE_SUPABASE_URL
+      if (!baseUrl) {
+        throw new Error('VITE_SUPABASE_URL environment variable is not set')
+      }
 
-      const response = await fetch(`${functionsUrl}/${endpoint}`, {
+      const functionsUrl = `${baseUrl}/functions/v1`
+      const fullUrl = `${functionsUrl}/${endpoint}`
+
+      console.log('🌐 Making API request to:', fullUrl)
+
+      const response = await fetch(fullUrl, {
         ...options,
         headers
       })
 
       if (!response.ok) {
         const errorText = await response.text()
+        console.error('❌ API request failed:', response.status, errorText)
         throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
-      return await response.json()
+      const result = await response.json()
+      console.log('✅ API request successful:', endpoint)
+      return result
     } catch (error) {
-      console.error(`API request failed (${endpoint}):`, error)
+      console.error(`❌ API request failed (${endpoint}):`, error)
       throw error
     }
   }
 
   // Client Operations
   static async getClientDashboardData() {
-    return this.makeRequest('client-operations/dashboard-data')
+    try {
+      return await this.makeRequest('client-operations/dashboard-data')
+    } catch (error) {
+      console.error('❌ Failed to get client dashboard data:', error)
+      // Return fallback data
+      return {
+        assignments: [],
+        progressData: [],
+        stats: { worksheets: 0, assessments: 0, exercises: 0, completed: 0 }
+      }
+    }
   }
 
   static async updateAssignment(assignmentId: string, status: string, responses?: any, score?: number) {
@@ -48,11 +68,30 @@ class APIService {
 
   // Therapist Operations
   static async getTherapistDashboardData() {
-    return this.makeRequest('therapist-operations/dashboard-data')
+    try {
+      return await this.makeRequest('therapist-operations/dashboard-data')
+    } catch (error) {
+      console.error('❌ Failed to get therapist dashboard data:', error)
+      // Return fallback data
+      return {
+        stats: { totalClients: 0, pendingAssessments: 0, completedAssessments: 0, upcomingAppointments: 0 },
+        clients: [],
+        recentActivity: []
+      }
+    }
   }
 
   static async getTherapistClients() {
-    return this.makeRequest('therapist-operations/clients')
+    try {
+      return await this.makeRequest('therapist-operations/clients')
+    } catch (error) {
+      console.error('❌ Failed to get therapist clients:', error)
+      // Return fallback data
+      return {
+        clients: [],
+        profilesMap: {}
+      }
+    }
   }
 
   static async addClientToRoster(email: string) {
@@ -71,7 +110,13 @@ class APIService {
 
   // Case Management
   static async getCases() {
-    return this.makeRequest('case-management/cases')
+    try {
+      return await this.makeRequest('case-management/cases')
+    } catch (error) {
+      console.error('❌ Failed to get cases:', error)
+      // Return fallback data
+      return []
+    }
   }
 
   static async createTreatmentPlan(clientId: string, title: string, caseFormulation?: string) {

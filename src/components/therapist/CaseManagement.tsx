@@ -2,7 +2,6 @@ import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { APIService } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
-import { CaseFormulation } from './CaseFormulation'
 import { FileText, User, Calendar, TrendingUp, ClipboardList, Plus, Search, Filter, Eye, Clock, Target, BookOpen, MessageSquare, Send, PlayCircle, PlusCircle, Stethoscope, Archive } from 'lucide-react'
 
 interface Client {
@@ -400,12 +399,10 @@ export const CaseManagement: React.FC = () => {
         )}
 
         {activeTab === 'formulation' && (
-          <React.Suspense fallback={<div>Loading...</div>}>
-            <CaseFormulation
-              caseFile={selectedCase}
-              onUpdate={() => queryClient.invalidateQueries({ queryKey: ['case-files', profile!.id] })}
-            />
-          </React.Suspense>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Case Formulation</h3>
+            <p className="text-gray-600">Case formulation features will be available soon.</p>
+          </div>
         )}
 
         {activeTab === 'goals' && (

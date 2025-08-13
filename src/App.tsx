@@ -12,7 +12,6 @@ const TherapistDashboard = React.lazy(() =>
 const ClientDashboard = React.lazy(() => 
   import('./pages/ClientDashboard').then(m => ({ default: m.default }))
 )
-const ProgressMetrics = React.lazy(() => import('./pages/ProgressMetrics'))
 
 // Preload components on user interaction
 const preloadDashboards = () => {
@@ -133,16 +132,6 @@ function App() {
               } 
             />
             <Route
-              path="/metrics"
-              element={
-                <ProtectedRoute role="therapist">
-                  <ProgressMetrics />
-                </ProtectedRoute>
-              }
-            />
-
-            
-            <Route 
               path="/client" 
               element={
                 <ProtectedRoute role="client">
