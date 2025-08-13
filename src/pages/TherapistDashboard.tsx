@@ -196,11 +196,11 @@ export const TherapistDashboard: React.FC = () => {
         .from('therapist_insights_metrics')
         .select('*')
         .eq('therapist_id', profile.id)
-        .single()
+        .maybeSingle()
       
       const insights: Insight[] = []
       
-      if (data?.overdue_assessments > 0) {
+      if (data?.overdue_assessments && data.overdue_assessments > 0) {
         insights.push({
           title: 'Overdue Assessments',
           message: `${data.overdue_assessments} assessments are overdue and need attention`,
@@ -210,7 +210,7 @@ export const TherapistDashboard: React.FC = () => {
         })
       }
       
-      if (data?.idle_clients > 0) {
+      if (data?.idle_clients && data.idle_clients > 0) {
         insights.push({
           title: 'Idle Clients',
           message: `${data.idle_clients} clients haven't had recent activity`,
