@@ -19,7 +19,6 @@ import {
   ChevronLeft,
   LifeBuoy,
   UserCheck,
-  BookOpen
 } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 
@@ -29,7 +28,6 @@ const CaseManagement = React.lazy(() => import('../components/therapist/CaseMana
 const SessionManagement = React.lazy(() => import('../components/therapist/SessionManagement').then(m => ({ default: m.SessionManagement })))
 const CommunicationTools = React.lazy(() => import('../components/therapist/CommunicationTools').then(m => ({ default: m.CommunicationTools })))
 const DocumentationCompliance = React.lazy(() => import('../components/therapist/DocumentationCompliance').then(m => ({ default: m.DocumentationCompliance })))
-const ResourceLibrary = React.lazy(() => import('../components/therapist/ResourceLibrary').then(m => ({ default: m.ResourceLibrary })))
 const PracticeManagement = React.lazy(() => import('../components/therapist/PracticeManagement').then(m => ({ default: m.PracticeManagement })))
 const Supervision = React.lazy(() => import('../components/therapist/Supervision').then(m => ({ default: m.Supervision })))
 const ContactSupport = React.lazy(() => import('../components/therapist/ContactSupport').then(m => ({ default: m.ContactSupport })))
@@ -75,7 +73,6 @@ export const TherapistDashboard: React.FC = () => {
     { id: 'cases', name: 'Case Management', icon: FileText, group: 'client-care', color: 'green' },
     { id: 'sessions', name: 'Session Management', icon: Calendar, group: 'client-care', color: 'green' },
     { id: 'communication', name: 'Communication', icon: MessageSquare, group: 'communication', color: 'orange' },
-    { id: 'practice-tools', name: 'Practice Tools', icon: BookOpen, group: 'communication', color: 'orange' },
     { id: 'archive', name: 'Archive', icon: FileText, group: 'communication', color: 'orange' },
     { id: 'clinic-rental', name: 'Clinic Rental', icon: Building, group: 'operations', color: 'teal' },
     { id: 'practice', name: 'Practice Management', icon: BarChart3, group: 'operations', color: 'indigo' },
@@ -456,12 +453,6 @@ export const TherapistDashboard: React.FC = () => {
         return (
           <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
             <CommunicationTools />
-          </React.Suspense>
-        )
-      case 'practice-tools':
-        return (
-          <React.Suspense fallback={<div className="flex justify-center py-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>}>
-            <ResourceLibrary />
           </React.Suspense>
         )
       case 'supervision':
