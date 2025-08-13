@@ -26,6 +26,8 @@ interface ClientProfile {
   risk_level?: string
   presenting_concerns?: string
   notes?: string
+  intake_status?: string
+  treatment_stage?: string
 }
 
 export const ClientManagement: React.FC = () => {
@@ -33,6 +35,9 @@ export const ClientManagement: React.FC = () => {
   const [clientProfiles, setClientProfiles] = useState<Record<string, ClientProfile>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [riskFilter, setRiskFilter] = useState<string>('all')
+  const [intakeFilter, setIntakeFilter] = useState<string>('all')
+  const [stageFilter, setStageFilter] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('name')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [showAddClient, setShowAddClient] = useState(false)
   const [showClientDetails, setShowClientDetails] = useState(false)
@@ -99,7 +104,7 @@ export const ClientManagement: React.FC = () => {
         const clientIds = clientList.map(c => c.id)
         const { data: profiles, error: profilesError } = await supabase
           .from('client_profiles')
-          .select('client_id, risk_level, presenting_concerns, notes')
+          .select('client_id, risk_level, presenting_concerns, notes, intake_status, treatment_stage')
           .in('client_id', clientIds)
           .eq('therapist_id', profile.id)
 
@@ -108,7 +113,9 @@ export const ClientManagement: React.FC = () => {
             acc[p.client_id] = {
               risk_level: p.risk_level,
               presenting_concerns: p.presenting_concerns,
-              notes: p.notes
+              notes: p.notes,
+              intake_status: p.intake_status,
+              treatment_stage: p.treatment_stage
             }
             return acc
           }, {} as Record<string, ClientProfile>)
@@ -159,11 +166,28 @@ export const ClientManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, searchTerm])
 
-  const filteredClients = clients.filter(client => {
-    const clientProfile = clientProfiles[client.id]
-    const matchesRisk = riskFilter === 'all' || clientProfile?.risk_level === riskFilter
-    return matchesRisk
-  })
+  const filteredClients = clients
+    .filter(client => {
+      const clientProfile = clientProfiles[client.id]
+      const matchesRisk = riskFilter === 'all' || clientProfile?.risk_level === riskFilter
+      const matchesIntake = intakeFilter === 'all' || clientProfile?.intake_status === intakeFilter
+      const matchesStage = stageFilter === 'all' || clientProfile?.treatment_stage === stageFilter
+      return matchesRisk && matchesIntake && matchesStage
+    })
+    .sort((a, b) => {
+      const profileA = clientProfiles[a.id]
+      const profileB = clientProfiles[b.id]
+      switch (sortBy) {
+        case 'intake_status':
+          return (profileA?.intake_status || '').localeCompare(profileB?.intake_status || '')
+        case 'treatment_stage':
+          return (profileA?.treatment_stage || '').localeCompare(profileB?.treatment_stage || '')
+        case 'created_at':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        default:
+          return (a.last_name + a.first_name).localeCompare(b.last_name + b.first_name)
+      }
+    })
 
   const getRiskColor = (riskLevel?: string) => {
     switch (riskLevel) {
@@ -318,6 +342,36 @@ export const ClientManagement: React.FC = () => {
               <option value="high">High Risk</option>
               <option value="crisis">Crisis</option>
             </select>
+            <select
+              value={intakeFilter}
+              onChange={(e) => setIntakeFilter(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Intake Statuses</option>
+              <option value="not_started">Not Started</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+            <select
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Treatment Stages</option>
+              <option value="assessment">Assessment</option>
+              <option value="treatment">Treatment</option>
+              <option value="maintenance">Maintenance</option>
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="name">Sort by Name</option>
+              <option value="created_at">Sort by Join Date</option>
+              <option value="intake_status">Sort by Intake Status</option>
+              <option value="treatment_stage">Sort by Treatment Stage</option>
+            </select>
           </div>
         </div>
       </div>
@@ -354,9 +408,15 @@ export const ClientManagement: React.FC = () => {
                 <div>
                   <span className="font-medium">Joined:</span> {formatDate(client.created_at)}
                 </div>
+                <div>
+                  <span className="font-medium">Intake:</span> {clientProfile?.intake_status || 'not_started'}
+                </div>
+                <div>
+                  <span className="font-medium">Stage:</span> {clientProfile?.treatment_stage || 'assessment'}
+                </div>
                 {clientProfile?.presenting_concerns && (
                   <div>
-                    <span className="font-medium">Concerns:</span> 
+                    <span className="font-medium">Concerns:</span>
                     <p className="text-xs mt-1 line-clamp-2">{clientProfile.presenting_concerns}</p>
                   </div>
                 )}
@@ -568,7 +628,9 @@ const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({ client, profile
     emergency_contact_name: clientProfile?.notes || '',
     risk_level: clientProfile?.risk_level || 'low',
     presenting_concerns: clientProfile?.presenting_concerns || '',
-    notes: clientProfile?.notes || ''
+    notes: clientProfile?.notes || '',
+    intake_status: clientProfile?.intake_status || 'not_started',
+    treatment_stage: clientProfile?.treatment_stage || 'assessment'
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -612,6 +674,32 @@ const ClientDetailsModal: React.FC<ClientDetailsModalProps> = ({ client, profile
                     <option value="moderate">Moderate Risk</option>
                     <option value="high">High Risk</option>
                     <option value="crisis">Crisis</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Intake Status</label>
+                  <select
+                    value={formData.intake_status}
+                    onChange={(e) => handleChange('intake_status', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="not_started">Not Started</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Treatment Stage</label>
+                  <select
+                    value={formData.treatment_stage}
+                    onChange={(e) => handleChange('treatment_stage', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="assessment">Assessment</option>
+                    <option value="treatment">Treatment</option>
+                    <option value="maintenance">Maintenance</option>
                   </select>
                 </div>
 
