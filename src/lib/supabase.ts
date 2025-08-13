@@ -314,6 +314,24 @@ export type Database = {
           progress: any
         }[]
       }
+      get_patient_insights_summary: {
+        Args: { patient_id: string }
+        Returns: any
+      }
+      get_therapist_insights: {
+        Args: { therapist_id: string }
+        Returns: any
+      }
+      insert_therapist_insight: {
+        Args: {
+          p_therapist_id: string
+          p_patient_id: string
+          p_metric_type: string
+          p_metric_value: number
+          p_metric_context?: any
+        }
+        Returns: string
+      }
     }
   }
   gamification: {

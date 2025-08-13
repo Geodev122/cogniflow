@@ -8,6 +8,9 @@
     - Therapists can manage their own metrics
 */
 
+DROP VIEW IF EXISTS therapist_insights_metrics CASCADE;
+DROP FUNCTION IF EXISTS therapist_insights(uuid);
+
 CREATE TABLE therapist_insights_metrics (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   therapist_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
