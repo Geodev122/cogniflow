@@ -79,7 +79,6 @@ interface Assignment {
 }
 
 export const CaseManagement: React.FC = () => {
-  const { profile } = useAuth()
   const queryClient = useQueryClient()
   const [selectedCase, setSelectedCase] = useState<CaseFile | null>(null)
   type Tab = 'overview' | 'formulation' | 'goals' | 'assignments' | 'progress' | 'notes' | 'timeline' | 'discharge'
