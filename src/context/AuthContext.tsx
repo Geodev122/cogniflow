@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
-import { supabase, supabaseUrl } from '../lib/supabase'
+import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabase'
 
 interface Profile {
   id: string
@@ -57,7 +57,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const checkSupabaseConnection = async () =>
       withTimeout(
-        fetch(`${supabaseUrl}/rest/v1/`),
+        fetch(`${supabaseUrl}/rest/v1/`, {
+          headers: {
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`
+          }
+        }),
         30000,
         'Supabase unreachable'
       )
