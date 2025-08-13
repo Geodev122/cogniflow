@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-const CaseFormulation = React.lazy(() => import('./CaseFormulation').then(m => ({ default: m.CaseFormulation })))
-import { FileText, User, Calendar, TrendingUp, ClipboardList, Plus, Search, Filter, Eye, BarChart3, AlertTriangle, Target, BookOpen, MessageSquare, Send, PlayCircle, Stethoscope, Baseline as Timeline } from 'lucide-react'
+import { CaseFormulation } from './CaseFormulation'
+import { FileText, User, Calendar, TrendingUp, ClipboardList, Plus, Search, Filter, Eye, Clock, Target, BookOpen, MessageSquare, Send, PlayCircle, PlusCircle, Stethoscope, Archive } from 'lucide-react'
 
 interface Client {
   id: string
@@ -13,20 +12,37 @@ interface Client {
   created_at: string
 }
 
-  interface CaseFile {
-    client: Client
-    sessionCount: number
-    lastSession?: string
-    nextAppointment?: string
-    assessments: Assessment[]
-    treatmentPlanId?: string
-    treatmentPlanTitle?: string
-    goals: Goal[]
-    assignments: Assignment[]
-    riskLevel: string
-    progressSummary: string
-    caseNotes: string
-  }
+interface TimelineEvent {
+  id: string
+  event_date: string
+  description: string
+  event_type: string
+}
+
+interface ProgressCheckpoint {
+  id: string
+  checkpoint_date: string
+  note: string
+  status: string
+}
+
+interface CaseFile {
+  client: Client
+  sessionCount: number
+  lastSession?: string
+  nextAppointment?: string
+  assessments: Assessment[]
+  treatmentPlanId?: string
+  treatmentPlanTitle?: string
+  goals: Goal[]
+  assignments: Assignment[]
+  riskLevel: string
+  progressSummary: string
+  caseNotes: string
+  timeline: TimelineEvent[]
+  checkpoints: ProgressCheckpoint[]
+  dischargeNotes: string
+}
 
 interface Assessment {
   id: string
@@ -66,9 +82,24 @@ export const CaseManagement: React.FC = () => {
   const { profile } = useAuth()
   const queryClient = useQueryClient()
   const [selectedCase, setSelectedCase] = useState<CaseFile | null>(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'goals' | 'assignments' | 'progress' | 'notes'>('overview')
+  type Tab = 'overview' | 'formulation' | 'goals' | 'assignments' | 'progress' | 'notes' | 'timeline' | 'discharge'
+  const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [riskFilter, setRiskFilter] = useState('all')
+  const [loading, setLoading] = useState(true)
+  const [dischargeNote, setDischargeNote] = useState('')
+  const { profile } = useAuth()
+
+  useEffect(() => {
+    if (profile) {
+      fetchCaseFiles()
+    }
+  }, [profile])
+
+
+  useEffect(() => {
+    setDischargeNote(selectedCase?.dischargeNotes || '')
+  }, [selectedCase])
 
   const fetchCaseFiles = async () => {
     if (!profile) return []
@@ -93,23 +124,49 @@ export const CaseManagement: React.FC = () => {
         return []
       }
 
-      const cases = (relations || []).map((relation: { profiles: Client }) => {
-        const client = relation.profiles
-        return {
-          client,
-          sessionCount: 0,
-          lastSession: undefined,
-          nextAppointment: undefined,
-          assessments: [],
-          treatmentPlanId: undefined,
-          treatmentPlanTitle: undefined,
-          goals: [],
-          assignments: [],
-          riskLevel: 'low',
-          progressSummary: 'No progress notes available',
-          caseNotes: ''
-        }
-      })
+      // Fetch related case data for each client
+      const cases = await Promise.all(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (relations || []).map(async (relation: any) => {
+          const client = relation.profiles
+
+          const { data: timelineData } = await supabase
+            .from('session_timeline')
+            .select('*')
+            .eq('client_id', client.id)
+            .order('event_date', { ascending: true })
+
+          const { data: checkpointData } = await supabase
+            .from('progress_checkpoints')
+            .select('*')
+            .eq('client_id', client.id)
+            .order('checkpoint_date', { ascending: true })
+
+          const { data: dischargeData } = await supabase
+            .from('discharge_notes')
+            .select('notes')
+            .eq('client_id', client.id)
+
+          return {
+            client,
+            sessionCount: 0,
+            lastSession: undefined,
+            nextAppointment: undefined,
+            assessments: [],
+            treatmentPlanId: undefined,
+            treatmentPlanTitle: undefined,
+            goals: [],
+            assignments: [],
+            riskLevel: 'low',
+            progressSummary: 'No progress notes available',
+            caseNotes: '',
+            timeline: timelineData || [],
+            checkpoints: checkpointData || [],
+            dischargeNotes: dischargeData?.[0]?.notes || ''
+          }
+        })
+      )
+
 
       return cases
     } catch (error) {
@@ -209,6 +266,58 @@ export const CaseManagement: React.FC = () => {
     }
   }
 
+  const handleAddTimelineEvent = async () => {
+    if (!selectedCase) return
+    const description = prompt('Event description')
+    if (!description) return
+
+    const { error } = await supabase
+      .from('session_timeline')
+      .insert({
+        client_id: selectedCase.client.id,
+        description,
+        event_type: 'note',
+        event_date: new Date().toISOString()
+      })
+
+    if (!error) {
+      fetchCaseFiles()
+    }
+  }
+
+  const handleAddCheckpoint = async () => {
+    if (!selectedCase) return
+    const note = prompt('Progress note')
+    if (!note) return
+
+    const { error } = await supabase
+      .from('progress_checkpoints')
+      .insert({
+        client_id: selectedCase.client.id,
+        note,
+        status: 'pending',
+        checkpoint_date: new Date().toISOString()
+      })
+
+    if (!error) {
+      fetchCaseFiles()
+    }
+  }
+
+  const handleSaveDischargeNotes = async () => {
+    if (!selectedCase) return
+    const { error } = await supabase
+      .from('discharge_notes')
+      .upsert({
+        client_id: selectedCase.client.id,
+        notes: dischargeNote
+      })
+
+    if (!error) {
+      fetchCaseFiles()
+    }
+  }
+
   const filteredCases = caseFiles.filter(caseFile => {
     const matchesSearch = `${caseFile.client.first_name} ${caseFile.client.last_name}`
       .toLowerCase()
@@ -296,7 +405,6 @@ export const CaseManagement: React.FC = () => {
             </div>
               <div className="flex space-x-2">
                 <button
-                  onClick={() => setShowNewAssignment(true)}
                   className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                 >
                   <Send className="w-4 h-4 mr-1" />
@@ -314,15 +422,16 @@ export const CaseManagement: React.FC = () => {
               { id: 'formulation', name: 'Case Formulation', icon: Stethoscope },
               { id: 'goals', name: 'Goals & Treatment', icon: Target },
               { id: 'assignments', name: 'Assignments', icon: ClipboardList },
-              { id: 'between-sessions', name: 'Between Sessions', icon: Timeline },
+              { id: 'timeline', name: 'Session Timeline', icon: Clock },
               { id: 'progress', name: 'Progress Tracking', icon: TrendingUp },
-              { id: 'notes', name: 'Case Notes', icon: MessageSquare }
+              { id: 'notes', name: 'Case Notes', icon: MessageSquare },
+              { id: 'discharge', name: 'Discharge', icon: Archive }
             ].map((tab) => {
               const Icon = tab.icon
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as 'overview' | 'goals' | 'assignments' | 'progress' | 'notes')}
+                  onClick={() => setActiveTab(tab.id as Tab)}
                   className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
@@ -531,7 +640,6 @@ export const CaseManagement: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Client Assignments</h3>
               <button
-                onClick={() => setShowNewAssignment(true)}
                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -574,16 +682,63 @@ export const CaseManagement: React.FC = () => {
           </div>
         )}
 
+        {activeTab === 'timeline' && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Session Timeline</h3>
+              <button
+                onClick={handleAddTimelineEvent}
+                className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              >
+                <PlusCircle className="w-4 h-4 mr-1" />
+                Add Event
+              </button>
+            </div>
+            {selectedCase.timeline.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No timeline events</p>
+            ) : (
+              <div className="space-y-3">
+                {selectedCase.timeline.map((event) => (
+                  <div key={event.id} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900">{event.description}</p>
+                      <p className="text-sm text-gray-600">{formatDate(event.event_date)}</p>
+                    </div>
+                    <span className="text-xs text-gray-500">{event.event_type}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'progress' && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Progress Tracking</h3>
-            <div className="text-center py-12 text-gray-500">
-              <BarChart3 className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Progress Charts</h3>
-              <p className="text-gray-600">
-                Visual progress tracking and analytics will be displayed here.
-              </p>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Progress Checkpoints</h3>
+              <button
+                onClick={handleAddCheckpoint}
+                className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+              >
+                <PlusCircle className="w-4 h-4 mr-1" />
+                Add Checkpoint
+              </button>
             </div>
+            {selectedCase.checkpoints.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">No checkpoints recorded</p>
+            ) : (
+              <div className="space-y-3">
+                {selectedCase.checkpoints.map((cp) => (
+                  <div key={cp.id} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900">{cp.note}</p>
+                      <p className="text-sm text-gray-600">{formatDate(cp.checkpoint_date)}</p>
+                    </div>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(cp.status)}`}>{cp.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -598,6 +753,26 @@ export const CaseManagement: React.FC = () => {
             <div className="mt-4 flex justify-end">
               <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Save Notes
+              </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'discharge' && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Discharge Notes</h3>
+            <textarea
+              className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Enter discharge summary..."
+              value={dischargeNote}
+              onChange={(e) => setDischargeNote(e.target.value)}
+            />
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={handleSaveDischargeNotes}
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Save Discharge Notes
               </button>
             </div>
           </div>
