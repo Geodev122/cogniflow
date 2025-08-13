@@ -19,6 +19,8 @@ import {
   ChevronLeft,
   LifeBuoy,
   UserCheck,
+  LogOut,
+  Settings
 } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 
@@ -65,7 +67,8 @@ export const TherapistDashboard: React.FC = () => {
     ONBOARDING_TITLES.map(title => ({ title, completed: false }))
   )
   const [currentOnboardingStep, setCurrentOnboardingStep] = useState(1)
-  const { profile } = useAuth()
+  const [showProfileMenu, setShowProfileMenu] = useState(false)
+  const { profile, signOut } = useAuth()
 
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target, group: 'overview', color: 'blue' },
@@ -170,6 +173,19 @@ export const TherapistDashboard: React.FC = () => {
     const nextStep = steps.findIndex(step => !step.completed) + 1
     setCurrentOnboardingStep(nextStep === 0 ? steps.length : nextStep)
     setProfileCompletion(Math.round((completed / steps.length) * 100))
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
+  }
+
+  const handleProfileClick = () => {
+    setShowOnboardingModal(true)
+    setShowProfileMenu(false)
   }
 
   if (profile && profile.role !== 'therapist') {
@@ -492,11 +508,73 @@ export const TherapistDashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-gray-700">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-medium text-blue-600">
-                    {profile?.first_name?.[0]}{profile?.last_name?.[0]}
-                  </span>
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className="flex items-center space-x-2 text-sm text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg p-2"
+                >
+                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-xs font-medium text-blue-600">
+                      {profile?.first_name?.[0]}{profile?.last_name?.[0]}
+                    </span>
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <div className="font-medium">{profile?.first_name} {profile?.last_name}</div>
+                    <div className="text-xs text-gray-500">Therapist</div>
+                  </div>
+                  <ChevronRight className={`w-4 h-4 transition-transform ${showProfileMenu ? 'rotate-90' : ''}`} />
+                </button>
+
+                {/* Profile Dropdown Menu */}
+                {showProfileMenu && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <div className="font-medium text-gray-900">{profile?.first_name} {profile?.last_name}</div>
+                      <div className="text-sm text-gray-500">{profile?.email}</div>
+                    </div>
+                    
+                    <button
+                      onClick={handleProfileClick}
+                      className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <User className="w-4 h-4" />
+                      <span>Edit Profile</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setShowProfileMenu(false)}
+                      className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span>Settings</span>
+                    </button>
+                    
+                    <div className="border-t border-gray-100 mt-2 pt-2">
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Click outside to close profile menu */}
+      {showProfileMenu && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowProfileMenu(false)}
+        />
+      )}
+
+      <div className="flex h-[calc(100vh-4rem)]">
                 </div>
                 <div className="hidden sm:block">
                   <span>{profile?.first_name} {profile?.last_name}</span>
