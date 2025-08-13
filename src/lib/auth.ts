@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-const EDGE_FUNCTION_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
+const EDGE_FUNCTION_BASE_URL = 'https://jichzbnbilngjlqnkebn.supabase.co/functions/v1'
 
 interface AuthResponse {
   success: boolean

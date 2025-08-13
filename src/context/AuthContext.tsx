@@ -148,7 +148,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Also update Supabase client session
       if (authResponse.session) {
-        await supabase.auth.setSession(authResponse.session)
+        await supabase.auth.setSession({
+          access_token: authResponse.session.access_token,
+          refresh_token: authResponse.session.refresh_token || ''
+        })
       }
       
     } catch (error: any) {
