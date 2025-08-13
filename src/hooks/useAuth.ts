@@ -56,16 +56,13 @@ export const useAuth = () => {
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .maybeSingle() // Use maybeSingle() instead of single() to handle 0 rows gracefully
+          .single()
         
-        if (profileData && !profileError) {
+        if (profileData) {
           console.log('Using profile from database:', profileData)
           setProfile(profileData)
           setError(null) // Clear any previous errors
           return
-        } else if (profileError && profileError.code !== 'PGRST116') {
-          // Only log non-"no rows" errors as warnings
-          console.warn('Database profile fetch failed:', profileError)
         }
       } catch (dbError) {
         console.warn('Database profile fetch error, using auth metadata:', dbError)
