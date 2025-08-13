@@ -41,6 +41,15 @@ interface DashboardStats {
   upcomingAppointments: number
 }
 
+const ONBOARDING_TITLES = [
+  'Basic Info',
+  'Expertise',
+  'Story',
+  'Practice Details',
+  'Verification',
+  'Membership'
+]
+
 export const TherapistDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('overview')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -54,6 +63,10 @@ export const TherapistDashboard: React.FC = () => {
   })
   const [loading, setLoading] = useState(true)
   const [profileCompletion, setProfileCompletion] = useState(0)
+  const [onboardingSteps, setOnboardingSteps] = useState<{ title: string; completed: boolean }[]>(
+    ONBOARDING_TITLES.map(title => ({ title, completed: false }))
+  )
+  const [currentOnboardingStep, setCurrentOnboardingStep] = useState(1)
   const { profile } = useAuth()
 
   const tabs = [
@@ -131,8 +144,12 @@ export const TherapistDashboard: React.FC = () => {
   }
 
   const calculateProfileCompletion = () => {
+    const steps = ONBOARDING_TITLES.map(title => ({ title, completed: false }))
+
     if (!profile?.professional_details) {
       setProfileCompletion(0)
+      setOnboardingSteps(steps)
+      setCurrentOnboardingStep(1)
       return
     }
 
@@ -141,35 +158,44 @@ export const TherapistDashboard: React.FC = () => {
 
     // Step 1: Basic Info
     if (profile.first_name && profile.last_name && profile.whatsapp_number) {
+      steps[0].completed = true
       completed += 1
     }
 
     // Step 2: Expertise
     if (details.specializations?.length > 0 && details.languages?.length > 0 && details.qualifications) {
+      steps[1].completed = true
       completed += 1
     }
 
     // Step 3: Story
     if (details.bio && details.bio.length >= 150) {
+      steps[2].completed = true
       completed += 1
     }
 
     // Step 4: Practice Details
     if (details.practice_locations?.length > 0) {
+      steps[3].completed = true
       completed += 1
     }
 
     // Step 5: Verification
     if (details.licenses?.length > 0) {
+      steps[4].completed = true
       completed += 1
     }
 
     // Step 6: Membership
     if (profile.verification_status === 'verified') {
+      steps[5].completed = true
       completed += 1
     }
 
-    setProfileCompletion(Math.round((completed / 6) * 100))
+    setOnboardingSteps(steps)
+    const nextStep = steps.findIndex(step => !step.completed) + 1
+    setCurrentOnboardingStep(nextStep === 0 ? steps.length : nextStep)
+    setProfileCompletion(Math.round((completed / steps.length) * 100))
   }
 
   if (profile && profile.role !== 'therapist') {
@@ -211,7 +237,7 @@ export const TherapistDashboard: React.FC = () => {
 
   const renderOverview = () => (
     <div className="space-y-6">
-      {/* Profile Completion Section */}
+      {/* TheraWay Onboarding Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
@@ -219,38 +245,46 @@ export const TherapistDashboard: React.FC = () => {
               <User className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">TheraWay Profile Setup</h3>
-              <p className="text-sm text-gray-600">Complete your profile to be listed on TheraWay directory</p>
+              <h3 className="text-lg font-semibold text-gray-900">TheraWay Onboarding</h3>
+              <p className="text-sm text-gray-600">Complete the steps below to join the TheraWay directory</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-16 h-2 bg-gray-200 rounded-full">
-              <div
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  profileCompletion === 100 ? 'bg-green-500' : 
-                  profileCompletion >= 50 ? 'bg-blue-500' : 'bg-amber-500'
-                }`}
-                style={{ width: `${profileCompletion}%` }}
-              ></div>
-            </div>
-            <span className="text-sm text-gray-600">{profileCompletion}%</span>
-          </div>
+          <span className="text-sm text-gray-600">
+            {onboardingSteps.filter(s => s.completed).length}/{onboardingSteps.length} steps
+          </span>
         </div>
+
+        <ol className="space-y-2 mb-4">
+          {onboardingSteps.map((step, idx) => (
+            <li key={step.title} className="flex items-center">
+              <div
+                className={`flex items-center justify-center w-6 h-6 rounded-full border mr-2 ${
+                  step.completed ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 text-gray-600'
+                }`}
+              >
+                {step.completed ? <CheckCircle className="w-4 h-4" /> : idx + 1}
+              </div>
+              <span className="text-sm text-gray-700">{step.title}</span>
+            </li>
+          ))}
+        </ol>
 
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-600">
-            Complete your profile to be listed on TheraWay and start attracting new clients
+            {profileCompletion === 100
+              ? 'TheraWay onboarding complete'
+              : `Currently on step ${currentOnboardingStep}`}
           </p>
           <button
             onClick={() => setShowOnboardingModal(true)}
             className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
-              profileCompletion === 100 
-                ? 'bg-green-600 hover:bg-green-700 text-white' 
+              profileCompletion === 100
+                ? 'bg-green-600 hover:bg-green-700 text-white'
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
           >
             <User className="w-4 h-4 mr-2" />
-            {profileCompletion === 100 ? 'View Profile' : 'Complete Profile'}
+            {profileCompletion === 100 ? 'View Profile' : 'Resume Onboarding'}
           </button>
         </div>
       </div>
