@@ -16,10 +16,10 @@ port = 54322
 [auth]
 # Enable email confirmations (recommended)
 enable_signup = true
-enable_email_confirmations = true
+enable_email_confirmations = false
 
 # Optional: Configure OTP (One-Time Password) expiry
-otp_expiry = 600  # 1 hour, which is a good default
+otp_expiry = 3600  # 1 hour (3600 seconds)
 
 # Optional: Enhanced security settings
 [auth.rate_limit]
@@ -31,6 +31,11 @@ web3 = 30
 # Optional: Password complexity requirements
 [auth.password]
 hibp_enabled = true
+min_length = 8
+require_uppercase = true
+require_lowercase = true
+require_numbers = true
+require_symbols = false
 
 # Optional: Session management
 [auth.sessions]
