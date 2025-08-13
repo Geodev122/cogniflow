@@ -1,5 +1,45 @@
-[auth]
-otp_expiry = 600
+# Project Identification
+project_id = "your-project-ref"
 
+# API Configuration
+[api]
+port = 54321
+schemas = ["public", "storage", "extensions"]
+
+# Database Configuration 
+[db]
+port = 54322
+# Optional: Configure connection pool size
+# pool_size = 10
+
+# Authentication Configuration
+[auth]
+# Enable email confirmations (recommended)
+enable_signup = true
+enable_email_confirmations = true
+
+# Optional: Configure OTP (One-Time Password) expiry
+otp_expiry = 600  # 1 hour, which is a good default
+
+# Optional: Enhanced security settings
+[auth.rate_limit]
+# Limit signup and login attempts
+email = 30
+phone = 30
+web3 = 30
+
+# Optional: Password complexity requirements
 [auth.password]
 hibp_enabled = true
+
+# Optional: Session management
+[auth.sessions]
+# Timeout and security settings
+inactivity_timeout = 2592000  # 30 days
+time_to_expiry = 2592000      # 30 days
+single_session_per_user = true
+
+[auth.external.google]
+enabled = false
+client_id = "env(GOOGLE_CLIENT_ID)"
+client_secret = "env(GOOGLE_CLIENT_SECRET)"
