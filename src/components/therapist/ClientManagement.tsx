@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import {
@@ -31,9 +32,10 @@ interface ClientProfile {
 }
 
 export const ClientManagement: React.FC = () => {
-  const [clients, setClients] = useState<Client[]>([])
-  const [clientProfiles, setClientProfiles] = useState<Record<string, ClientProfile>>({})
+  const { profile } = useAuth()
+  const queryClient = useQueryClient()
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [riskFilter, setRiskFilter] = useState<string>('all')
   const [intakeFilter, setIntakeFilter] = useState<string>('all')
   const [stageFilter, setStageFilter] = useState<string>('all')
@@ -41,111 +43,97 @@ export const ClientManagement: React.FC = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [showAddClient, setShowAddClient] = useState(false)
   const [showClientDetails, setShowClientDetails] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const { profile } = useAuth()
-  const [page, setPage] = useState(0)
-  const [hasMore, setHasMore] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const PAGE_SIZE = 12
-  const fetchClients = async ({ page = 0, search = '', append = false }: { page?: number; search?: string; append?: boolean } = {}) => {
-    if (!profile?.id) return
-
-    if (append) {
-      setLoadingMore(true)
-    } else {
-      setLoading(true)
-      setClients([])
-      setClientProfiles({})
-      setHasMore(true)
-    }
-    setError(null)
-
-    try {
-      let query = supabase
-        .from('therapist_client_relations')
-        .select(`
-          client_id,
-          profiles!therapist_client_relations_client_id_fkey (
-            id,
-            first_name,
-            last_name,
-            email,
-            created_at,
-            whatsapp_number,
-            patient_code
-          )
-        `, { count: 'exact' })
-        .eq('therapist_id', profile.id)
-        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
-
-      if (search) {
-        query = query.or(
-          `profiles.first_name.ilike.%${search}%,profiles.last_name.ilike.%${search}%,profiles.email.ilike.%${search}%`
-        )
-      }
-
-      const { data: relations, error: relationsError, count } = await query
-
-      if (relationsError) {
-        console.error('Error fetching client relations:', relationsError)
-        setError('Failed to load clients')
-        if (!append) setClients([])
-        return
-      }
-
-      const clientList = (relations || [])
-        .map((relation: { profiles: Client }) => relation.profiles)
-        .filter(Boolean)
-
-      setClients(prev => (append ? [...prev, ...clientList] : clientList))
-
-      if (clientList.length > 0) {
-        const clientIds = clientList.map(c => c.id)
-        const { data: profiles, error: profilesError } = await supabase
-          .from('client_profiles')
-          .select('client_id, risk_level, presenting_concerns, notes, intake_status, treatment_stage')
-          .in('client_id', clientIds)
-          .eq('therapist_id', profile.id)
-
-        if (!profilesError && profiles) {
-          const profilesMap = profiles.reduce((acc, p) => {
-            acc[p.client_id] = {
-              risk_level: p.risk_level,
-              presenting_concerns: p.presenting_concerns,
-              notes: p.notes,
-              intake_status: p.intake_status,
-              treatment_stage: p.treatment_stage
-            }
-            return acc
-          }, {} as Record<string, ClientProfile>)
-          setClientProfiles(prev => (append ? { ...prev, ...profilesMap } : profilesMap))
-        }
-      }
-
-      setPage(page)
-      if (typeof count === 'number') {
-        setHasMore((page + 1) * PAGE_SIZE < count)
-      } else {
-        setHasMore(clientList.length === PAGE_SIZE)
-      }
-
-    } catch (error) {
-      console.error('Error fetching clients:', error)
-      setError('Failed to load clients')
-      if (!append) setClients([])
-    } finally {
-      setLoading(false)
-      setLoadingMore(false)
-    }
-  }
 
   useEffect(() => {
-    if (profile?.id) {
-      fetchClients({ page: 0, search: searchTerm })
+    const handler = setTimeout(() => setDebouncedSearch(searchTerm), 300)
+    return () => clearTimeout(handler)
+  }, [searchTerm])
+
+  const fetchClients = async ({ pageParam = 0 }: { pageParam?: number }) => {
+    if (!profile?.id) {
+      return { clients: [], profilesMap: {}, hasMore: false, page: pageParam }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, searchTerm])
+
+    let query = supabase
+      .from('therapist_client_relations')
+      .select(`
+        client_id,
+        profiles!therapist_client_relations_client_id_fkey (
+          id,
+          first_name,
+          last_name,
+          email,
+          created_at,
+          whatsapp_number,
+          patient_code
+        )
+      `, { count: 'exact' })
+      .eq('therapist_id', profile.id)
+      .range(pageParam * PAGE_SIZE, pageParam * PAGE_SIZE + PAGE_SIZE - 1)
+
+    if (debouncedSearch) {
+      query = query.or(
+        `profiles.first_name.ilike.%${debouncedSearch}%,profiles.last_name.ilike.%${debouncedSearch}%,profiles.email.ilike.%${debouncedSearch}%`
+      )
+    }
+
+    const { data: relations, error, count } = await query
+
+    if (error) {
+      throw error
+    }
+
+    const clientList = (relations || [])
+      .map((relation: { profiles: Client }) => relation.profiles)
+      .filter(Boolean)
+
+    let profilesMap: Record<string, ClientProfile> = {}
+    if (clientList.length > 0) {
+      const clientIds = clientList.map(c => c.id)
+      const { data: profiles } = await supabase
+        .from('client_profiles')
+        .select('client_id, risk_level, presenting_concerns, notes, intake_status, treatment_stage')
+        .in('client_id', clientIds)
+        .eq('therapist_id', profile.id)
+
+      if (profiles) {
+        profilesMap = profiles.reduce((acc, p) => {
+          acc[p.client_id] = {
+            risk_level: p.risk_level,
+            presenting_concerns: p.presenting_concerns,
+            notes: p.notes,
+            intake_status: p.intake_status,
+            treatment_stage: p.treatment_stage
+          }
+          return acc
+        }, {} as Record<string, ClientProfile>)
+      }
+    }
+
+    const totalCount = typeof count === 'number' ? count : clientList.length
+    const hasMore = (pageParam + 1) * PAGE_SIZE < totalCount
+
+    return { clients: clientList, profilesMap, hasMore, page: pageParam }
+  }
+
+  const {
+    data,
+    error,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage
+  } = useInfiniteQuery({
+    queryKey: ['clients', profile?.id, debouncedSearch],
+    queryFn: fetchClients,
+    getNextPageParam: lastPage => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+    enabled: !!profile?.id,
+    initialPageParam: 0
+  })
+
+  const clients = data?.pages.flatMap(page => page.clients) ?? []
+  const clientProfiles = Object.assign({}, ...(data?.pages.map(p => p.profilesMap) ?? [])) as Record<string, ClientProfile>
 
   useEffect(() => {
     if (!profile?.id) return
@@ -153,18 +141,17 @@ export const ClientManagement: React.FC = () => {
     const channel = supabase
       .channel('therapist-client-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'therapist_client_relations', filter: `therapist_id=eq.${profile.id}` }, () => {
-        fetchClients({ page: 0, search: searchTerm })
+        queryClient.invalidateQueries({ queryKey: ['clients', profile.id] })
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'client_profiles', filter: `therapist_id=eq.${profile.id}` }, () => {
-        fetchClients({ page: 0, search: searchTerm })
+        queryClient.invalidateQueries({ queryKey: ['clients', profile.id] })
       })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profile?.id, searchTerm])
+  }, [profile?.id, queryClient])
 
   const filteredClients = clients
     .filter(client => {
@@ -244,7 +231,7 @@ export const ClientManagement: React.FC = () => {
         return
       }
 
-      await fetchClients({ page: 0, search: searchTerm })
+      await queryClient.invalidateQueries({ queryKey: ['clients', profile!.id] })
       setShowAddClient(false)
     } catch (error) {
       console.error('Error adding client:', error)
@@ -265,7 +252,7 @@ export const ClientManagement: React.FC = () => {
 
       if (error) throw error
 
-      await fetchClients({ page: 0, search: searchTerm })
+      await queryClient.invalidateQueries({ queryKey: ['clients', profile!.id] })
       setShowClientDetails(false)
     } catch (error) {
       console.error('Error updating client profile:', error)
@@ -274,11 +261,10 @@ export const ClientManagement: React.FC = () => {
   }
 
   const handleLoadMore = () => {
-    const nextPage = page + 1
-    fetchClients({ page: nextPage, search: searchTerm, append: true })
+    if (hasNextPage) fetchNextPage()
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -291,7 +277,7 @@ export const ClientManagement: React.FC = () => {
       <div className="bg-red-50 border border-red-200 rounded-lg p-4">
         <div className="flex items-center space-x-2">
           <AlertTriangle className="w-5 h-5 text-red-600" />
-          <span className="text-red-800">{error}</span>
+          <span className="text-red-800">{error instanceof Error ? error.message : 'Failed to load clients'}</span>
         </div>
       </div>
     )
@@ -447,14 +433,14 @@ export const ClientManagement: React.FC = () => {
         })}
       </div>
 
-      {hasMore && (
+      {hasNextPage && (
         <div className="flex justify-center mt-6">
           <button
             onClick={handleLoadMore}
-            disabled={loadingMore}
+            disabled={isFetchingNextPage}
             className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
           >
-            {loadingMore ? 'Loading...' : 'Load more'}
+            {isFetchingNextPage ? 'Loading...' : 'Load more'}
           </button>
         </div>
       )}
