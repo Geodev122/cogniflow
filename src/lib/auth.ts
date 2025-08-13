@@ -36,7 +36,7 @@ export class AuthService {
         headers['Authorization'] = `Bearer ${session.access_token}`
       }
 
-      const response = await fetch(`${EDGE_FUNCTION_BASE_URL}/${endpoint}`, {
+      const response = await fetch(`${EDGE_FUNCTION_BASE_URL}/auth${endpoint}`, {
         method,
         headers,
         body: method !== 'GET' ? JSON.stringify(payload) : undefined
@@ -50,14 +50,11 @@ export class AuthService {
       const result = await response.json()
       
       // Check if the response indicates an error
-      if (result.error) {
+      if (!result.success && result.error) {
         throw new Error(result.error)
       }
 
-      return {
-        success: true,
-        ...result
-      }
+      return result
     } catch (error) {
       console.error(`Auth function error (${endpoint}):`, error)
       return {
@@ -68,7 +65,7 @@ export class AuthService {
   }
 
   static async signIn(email: string, password: string): Promise<AuthResponse> {
-    const response = await this.callAuthFunction('auth/login', { email, password })
+    const response = await this.callAuthFunction('/login', { email, password })
     
     // If successful, update the local Supabase client session
     if (response.success && response.session) {
@@ -86,7 +83,7 @@ export class AuthService {
   }
 
   static async signUp(email: string, password: string, userData: UserData): Promise<AuthResponse> {
-    return this.callAuthFunction('auth/signup', { 
+    return this.callAuthFunction('/signup', { 
       email, 
       password, 
       role: userData.role,
@@ -97,7 +94,7 @@ export class AuthService {
 
   static async signOut(): Promise<AuthResponse> {
     // Sign out from edge function first
-    const response = await this.callAuthFunction('auth/logout', {})
+    const response = await this.callAuthFunction('/logout', {})
     
     // Also sign out locally
     try {
@@ -123,47 +120,11 @@ export class AuthService {
     }
 
     // Verify session with edge function
-    return this.callAuthFunction('auth/session', {}, 'GET')
+    return this.callAuthFunction('/session', {}, 'GET')
   }
 
   static async refreshSession(): Promise<AuthResponse> {
-    return this.callAuthFunction('auth/refresh', {}, 'POST')
-  }
-
-  static async updateUserMetadata(userId: string, metadata: Record<string, unknown>): Promise<AuthResponse> {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!session?.access_token) {
-        return { success: false, error: 'No active session' }
-      }
-
-      const response = await fetch(`${EDGE_FUNCTION_BASE_URL}/update-user-metadata`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          userId,
-          metadata
-        })
-      })
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`HTTP ${response.status}: ${errorText}`)
-      }
-
-      const result = await response.json()
-      return result
-    } catch (error) {
-      console.error('Update metadata error:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Network error'
-      }
-    }
+    return this.callAuthFunction('/refresh', {}, 'POST')
   }
 
   // New method for robust profile fetching

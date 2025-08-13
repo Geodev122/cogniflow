@@ -29,9 +29,10 @@ Deno.serve(async (req: Request) => {
     );
 
     const url = new URL(req.url);
+    const path = url.pathname.replace('/auth', '');
     
-    switch (url.pathname) {
-      case '/auth/login':
+    switch (path) {
+      case '/login':
         try {
           const { email, password } = await req.json();
           
@@ -51,7 +52,7 @@ Deno.serve(async (req: Request) => {
             throw new Error('Authentication failed - no user or session returned');
           }
 
-          // Fetch detailed profile with comprehensive data
+          // Fetch comprehensive profile
           const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select(`
@@ -77,10 +78,10 @@ Deno.serve(async (req: Request) => {
           }
 
           return new Response(JSON.stringify({ 
+            success: true,
             user: data.user, 
             profile: profileData || null,
-            session: data.session,
-            success: true
+            session: data.session
           }), {
             status: 200,
             headers: { 
@@ -91,8 +92,8 @@ Deno.serve(async (req: Request) => {
         } catch (error) {
           console.error('Login error:', error);
           return new Response(JSON.stringify({ 
-            error: error.message || 'Login failed',
-            success: false
+            success: false,
+            error: error.message || 'Login failed'
           }), { 
             status: 400,
             headers: { 
@@ -102,7 +103,7 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-      case '/auth/signup':
+      case '/signup':
         try {
           const { email, password, role, first_name, last_name } = await req.json();
           
@@ -157,9 +158,9 @@ Deno.serve(async (req: Request) => {
           }
 
           return new Response(JSON.stringify({ 
+            success: true,
             user: data.user,
             session: data.session,
-            success: true,
             message: 'Account created successfully'
           }), {
             status: 200,
@@ -171,8 +172,8 @@ Deno.serve(async (req: Request) => {
         } catch (error) {
           console.error('Signup error:', error);
           return new Response(JSON.stringify({ 
-            error: error.message || 'Signup failed',
-            success: false
+            success: false,
+            error: error.message || 'Signup failed'
           }), { 
             status: 400,
             headers: { 
@@ -182,7 +183,7 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-      case '/auth/logout':
+      case '/logout':
         try {
           // Get the authorization header to identify the user
           const authHeader = req.headers.get('Authorization');
@@ -209,8 +210,8 @@ Deno.serve(async (req: Request) => {
           }
 
           return new Response(JSON.stringify({ 
-            message: 'Logged out successfully',
-            success: true
+            success: true,
+            message: 'Logged out successfully'
           }), {
             status: 200,
             headers: { 
@@ -221,8 +222,8 @@ Deno.serve(async (req: Request) => {
         } catch (error) {
           console.error('Logout error:', error);
           return new Response(JSON.stringify({ 
-            error: error.message || 'Logout failed',
-            success: false
+            success: false,
+            error: error.message || 'Logout failed'
           }), { 
             status: 400,
             headers: { 
@@ -232,16 +233,16 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-      case '/auth/session':
+      case '/session':
         try {
           // Get the authorization header
           const authHeader = req.headers.get('Authorization');
           if (!authHeader || !authHeader.startsWith('Bearer ')) {
             return new Response(JSON.stringify({ 
+              success: true,
               user: null, 
               profile: null, 
-              session: null,
-              success: true
+              session: null
             }), {
               status: 200,
               headers: { 
@@ -258,10 +259,10 @@ Deno.serve(async (req: Request) => {
           
           if (userError || !user) {
             return new Response(JSON.stringify({ 
+              success: true,
               user: null, 
               profile: null, 
-              session: null,
-              success: true
+              session: null
             }), {
               status: 200,
               headers: { 
@@ -298,17 +299,17 @@ Deno.serve(async (req: Request) => {
           // Create session object
           const sessionData = {
             access_token: token,
-            refresh_token: '', // We don't have refresh token from header
+            refresh_token: '',
             expires_in: 3600,
             token_type: 'bearer',
             user: user
           };
 
           return new Response(JSON.stringify({ 
+            success: true,
             user: user,
             profile: profileData || null,
-            session: sessionData,
-            success: true
+            session: sessionData
           }), {
             status: 200,
             headers: { 
@@ -319,8 +320,8 @@ Deno.serve(async (req: Request) => {
         } catch (error) {
           console.error('Session check error:', error);
           return new Response(JSON.stringify({ 
-            error: error.message || 'Session check failed',
-            success: false
+            success: false,
+            error: error.message || 'Session check failed'
           }), { 
             status: 500,
             headers: { 
@@ -330,7 +331,7 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-      case '/auth/refresh':
+      case '/refresh':
         try {
           const authHeader = req.headers.get('Authorization');
           if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -356,9 +357,9 @@ Deno.serve(async (req: Request) => {
           };
 
           return new Response(JSON.stringify({ 
+            success: true,
             user: user,
-            session: refreshedSession,
-            success: true
+            session: refreshedSession
           }), {
             status: 200,
             headers: { 
@@ -369,8 +370,8 @@ Deno.serve(async (req: Request) => {
         } catch (error) {
           console.error('Refresh error:', error);
           return new Response(JSON.stringify({ 
-            error: error.message || 'Session refresh failed',
-            success: false
+            success: false,
+            error: error.message || 'Session refresh failed'
           }), { 
             status: 400,
             headers: { 
@@ -382,8 +383,8 @@ Deno.serve(async (req: Request) => {
 
       default:
         return new Response(JSON.stringify({ 
-          error: 'Endpoint not found',
-          success: false
+          success: false,
+          error: 'Endpoint not found'
         }), { 
           status: 404,
           headers: { 
@@ -395,8 +396,8 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('Function error:', error);
     return new Response(JSON.stringify({ 
-      error: error.message || 'Internal server error',
-      success: false
+      success: false,
+      error: error.message || 'Internal server error'
     }), { 
       status: 500,
       headers: { 
