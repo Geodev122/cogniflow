@@ -1,6 +1,8 @@
+import { createClient } from 'npm:@supabase/supabase-js@2.39.0';
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
@@ -12,6 +14,7 @@ interface MetadataRequest {
     whatsapp_number?: string
     professional_details?: any
     verification_status?: string
+    [key: string]: any
   }
 }
 
@@ -30,10 +33,19 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    if (req.method !== "POST") {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Method not allowed' }),
+        {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          status: 405
+        }
+      )
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     
-    const { createClient } = await import('npm:@supabase/supabase-js@2')
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
@@ -69,6 +81,16 @@ Deno.serve(async (req: Request) => {
     }
 
     const metadataRequest: MetadataRequest = await req.json()
+
+    if (!metadataRequest.userId || !metadataRequest.metadata) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'userId and metadata are required' }),
+        {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          status: 400
+        }
+      )
+    }
 
     // Verify user can update this profile (must be their own or they must be a therapist updating a client)
     if (metadataRequest.userId !== user.id) {

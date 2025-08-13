@@ -1,278 +1,408 @@
+import { createClient } from 'npm:@supabase/supabase-js@2.39.0';
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-interface AuthRequest {
-  action: 'signIn' | 'signUp' | 'signOut' | 'getSession' | 'refreshSession'
-  email?: string
-  password?: string
-  userData?: {
-    first_name: string
-    last_name: string
-    role: 'therapist' | 'client'
-  }
-}
-
-interface AuthResponse {
-  success: boolean
-  data?: any
-  error?: string
-  user?: any
-  session?: any
-  profile?: any
-}
-
 Deno.serve(async (req: Request) => {
+  // CORS handling
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }
+
   try {
-    if (req.method === "OPTIONS") {
-      return new Response(null, {
-        status: 200,
-        headers: corsHeaders,
-      });
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    
-    const { createClient } = await import('npm:@supabase/supabase-js@2')
-    
-    // Create admin client for user management
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false
-      }
-    })
-
-    // Create regular client for auth operations
-    const supabaseClient = createClient(
-      supabaseUrl, 
-      Deno.env.get('SUPABASE_ANON_KEY')!,
+    // Create Supabase client with robust session management
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: {
           autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: false
+          persistSession: true
         }
       }
-    )
+    );
 
-    const authRequest: AuthRequest = await req.json()
-    let response: AuthResponse = { success: false }
+    const url = new URL(req.url);
+    
+    switch (url.pathname) {
+      case '/auth/login':
+        try {
+          const { email, password } = await req.json();
+          
+          if (!email || !password) {
+            throw new Error('Email and password are required');
+          }
+          
+          // Authenticate user
+          const { data, error: authError } = await supabase.auth.signInWithPassword({
+            email,
+            password
+          });
 
-    switch (authRequest.action) {
-      case 'signIn':
-        if (!authRequest.email || !authRequest.password) {
-          response = { success: false, error: 'Email and password are required' }
-          break
+          if (authError) throw authError;
+
+          if (!data.user || !data.session) {
+            throw new Error('Authentication failed - no user or session returned');
+          }
+
+          // Fetch detailed profile with comprehensive data
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select(`
+              id, 
+              role, 
+              first_name, 
+              last_name, 
+              email,
+              whatsapp_number,
+              password_set,
+              created_by_therapist,
+              professional_details,
+              verification_status,
+              created_at,
+              updated_at
+            `)
+            .eq('id', data.user.id)
+            .single();
+
+          if (profileError) {
+            console.error('Profile fetch error:', profileError);
+            // Don't throw error, just log it and return user without profile
+          }
+
+          return new Response(JSON.stringify({ 
+            user: data.user, 
+            profile: profileData || null,
+            session: data.session,
+            success: true
+          }), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        } catch (error) {
+          console.error('Login error:', error);
+          return new Response(JSON.stringify({ 
+            error: error.message || 'Login failed',
+            success: false
+          }), { 
+            status: 400,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
         }
 
-        // Use the regular client for sign in
-        const { data: signInData, error: signInError } = await supabaseClient.auth.signInWithPassword({
-          email: authRequest.email,
-          password: authRequest.password
-        })
+      case '/auth/signup':
+        try {
+          const { email, password, role, first_name, last_name } = await req.json();
+          
+          if (!email || !password || !role || !first_name || !last_name) {
+            throw new Error('All fields are required: email, password, role, first_name, last_name');
+          }
+          
+          // Validate role
+          if (!['therapist', 'client'].includes(role)) {
+            throw new Error('Invalid role. Must be therapist or client.');
+          }
 
-        if (signInError) {
-          response = { success: false, error: signInError.message }
-          break
-        }
+          // Create user with detailed profile
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                role,
+                first_name,
+                last_name
+              }
+            }
+          });
 
-        if (!signInData.user || !signInData.session) {
-          response = { success: false, error: 'Authentication failed' }
-          break
-        }
+          if (error) throw error;
 
-        // Fetch user profile using admin client
-        const { data: profileData, error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .select('*')
-          .eq('id', signInData.user.id)
-          .single()
+          if (!data.user) {
+            throw new Error('User creation failed');
+          }
 
-        response = { 
-          success: true, 
-          user: signInData.user, 
-          session: signInData.session,
-          profile: profileError ? null : profileData
-        }
-        break
-
-      case 'signUp':
-        if (!authRequest.email || !authRequest.password || !authRequest.userData) {
-          response = { success: false, error: 'Email, password, and user data are required' }
-          break
-        }
-
-        // Use admin client to create user
-        const { data: signUpData, error: signUpError } = await supabaseAdmin.auth.admin.createUser({
-          email: authRequest.email,
-          password: authRequest.password,
-          email_confirm: true,
-          user_metadata: authRequest.userData
-        })
-
-        if (signUpError) {
-          response = { success: false, error: signUpError.message }
-          break
-        }
-
-        if (signUpData.user) {
-          // Create profile using admin client
-          const { error: profileInsertError } = await supabaseAdmin
+          // Insert comprehensive profile
+          const { error: profileError } = await supabase
             .from('profiles')
             .insert({
-              id: signUpData.user.id,
-              email: authRequest.email,
-              first_name: authRequest.userData.first_name,
-              last_name: authRequest.userData.last_name,
-              role: authRequest.userData.role
-            })
+              id: data.user.id,
+              role,
+              first_name,
+              last_name,
+              email,
+              password_set: true,
+              verification_status: role === 'therapist' ? 'pending' : null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
 
-          if (profileInsertError) {
-            response = { 
-              success: false, 
-              error: `User created but profile failed: ${profileInsertError.message}` 
+          if (profileError) {
+            console.error('Profile creation error:', profileError);
+            // Try to clean up the user if profile creation failed
+            await supabase.auth.admin.deleteUser(data.user.id);
+            throw new Error(`Profile creation failed: ${profileError.message}`);
+          }
+
+          return new Response(JSON.stringify({ 
+            user: data.user,
+            session: data.session,
+            success: true,
+            message: 'Account created successfully'
+          }), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
             }
-          } else {
-            response = { 
-              success: true, 
-              user: signUpData.user,
-              session: null // User needs to sign in after registration
+          });
+        } catch (error) {
+          console.error('Signup error:', error);
+          return new Response(JSON.stringify({ 
+            error: error.message || 'Signup failed',
+            success: false
+          }), { 
+            status: 400,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        }
+
+      case '/auth/logout':
+        try {
+          // Get the authorization header to identify the user
+          const authHeader = req.headers.get('Authorization');
+          if (authHeader && authHeader.startsWith('Bearer ')) {
+            const token = authHeader.replace('Bearer ', '');
+            
+            // Verify and get user from token
+            const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+            
+            if (!userError && user) {
+              // Sign out the specific user
+              const { error: signOutError } = await supabase.auth.admin.signOut(user.id);
+              if (signOutError) {
+                console.error('Admin signout error:', signOutError);
+              }
             }
           }
-        } else {
-          response = { success: false, error: 'User creation failed' }
-        }
-        break
-
-      case 'signOut':
-        // Get auth header for user context
-        const authHeader = req.headers.get('Authorization')
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-          const token = authHeader.replace('Bearer ', '')
           
-          // Set session for the client
-          await supabaseClient.auth.setSession({
+          // Also perform general signout
+          const { error } = await supabase.auth.signOut();
+          
+          if (error) {
+            console.error('General signout error:', error);
+          }
+
+          return new Response(JSON.stringify({ 
+            message: 'Logged out successfully',
+            success: true
+          }), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        } catch (error) {
+          console.error('Logout error:', error);
+          return new Response(JSON.stringify({ 
+            error: error.message || 'Logout failed',
+            success: false
+          }), { 
+            status: 400,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        }
+
+      case '/auth/session':
+        try {
+          // Get the authorization header
+          const authHeader = req.headers.get('Authorization');
+          if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return new Response(JSON.stringify({ 
+              user: null, 
+              profile: null, 
+              session: null,
+              success: true
+            }), {
+              status: 200,
+              headers: { 
+                'Content-Type': 'application/json',
+                ...corsHeaders
+              }
+            });
+          }
+
+          const token = authHeader.replace('Bearer ', '');
+          
+          // Verify token and get user
+          const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+          
+          if (userError || !user) {
+            return new Response(JSON.stringify({ 
+              user: null, 
+              profile: null, 
+              session: null,
+              success: true
+            }), {
+              status: 200,
+              headers: { 
+                'Content-Type': 'application/json',
+                ...corsHeaders
+              }
+            });
+          }
+
+          // Fetch comprehensive profile
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select(`
+              id, 
+              role, 
+              first_name, 
+              last_name, 
+              email,
+              whatsapp_number,
+              password_set,
+              created_by_therapist,
+              professional_details,
+              verification_status,
+              created_at,
+              updated_at
+            `)
+            .eq('id', user.id)
+            .single();
+
+          if (profileError) {
+            console.error('Profile fetch error:', profileError);
+          }
+
+          // Create session object
+          const sessionData = {
             access_token: token,
-            refresh_token: '', // We don't have refresh token here
-          })
-        }
-        
-        const { error: signOutError } = await supabaseClient.auth.signOut()
-        response = { 
-          success: !signOutError, 
-          error: signOutError?.message 
-        }
-        break
+            refresh_token: '', // We don't have refresh token from header
+            expires_in: 3600,
+            token_type: 'bearer',
+            user: user
+          };
 
-      case 'getSession':
-        // Get auth header
-        const sessionAuthHeader = req.headers.get('Authorization')
-        if (!sessionAuthHeader || !sessionAuthHeader.startsWith('Bearer ')) {
-          response = { success: true, user: null, session: null, profile: null }
-          break
-        }
-
-        const sessionToken = sessionAuthHeader.replace('Bearer ', '')
-        
-        // Verify token using admin client
-        const { data: userData, error: userError } = await supabaseAdmin.auth.getUser(sessionToken)
-        
-        if (userError || !userData.user) {
-          response = { success: true, user: null, session: null, profile: null }
-          break
-        }
-
-        // Fetch profile
-        const { data: sessionProfileData, error: sessionProfileError } = await supabaseAdmin
-          .from('profiles')
-          .select('*')
-          .eq('id', userData.user.id)
-          .single()
-
-        // Create a mock session object since we can't get the full session from token
-        const mockSession = {
-          access_token: sessionToken,
-          refresh_token: '',
-          expires_in: 3600,
-          token_type: 'bearer',
-          user: userData.user
+          return new Response(JSON.stringify({ 
+            user: user,
+            profile: profileData || null,
+            session: sessionData,
+            success: true
+          }), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        } catch (error) {
+          console.error('Session check error:', error);
+          return new Response(JSON.stringify({ 
+            error: error.message || 'Session check failed',
+            success: false
+          }), { 
+            status: 500,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
         }
 
-        response = { 
-          success: true, 
-          user: userData.user,
-          session: mockSession,
-          profile: sessionProfileError ? null : sessionProfileData
-        }
-        break
+      case '/auth/refresh':
+        try {
+          const authHeader = req.headers.get('Authorization');
+          if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            throw new Error('No session to refresh');
+          }
 
-      case 'refreshSession':
-        // Get current session token
-        const refreshAuthHeader = req.headers.get('Authorization')
-        if (!refreshAuthHeader || !refreshAuthHeader.startsWith('Bearer ')) {
-          response = { success: false, error: 'No session to refresh' }
-          break
-        }
+          const token = authHeader.replace('Bearer ', '');
+          
+          // Verify the current token is still valid
+          const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+          
+          if (userError || !user) {
+            throw new Error('Invalid session');
+          }
 
-        const refreshToken = refreshAuthHeader.replace('Bearer ', '')
-        
-        // Verify the current token is still valid
-        const { data: refreshUserData, error: refreshUserError } = await supabaseAdmin.auth.getUser(refreshToken)
-        
-        if (refreshUserError || !refreshUserData.user) {
-          response = { success: false, error: 'Invalid session' }
-          break
-        }
+          // Return the same session (tokens don't expire quickly in development)
+          const refreshedSession = {
+            access_token: token,
+            refresh_token: '',
+            expires_in: 3600,
+            token_type: 'bearer',
+            user: user
+          };
 
-        // Return the same session (tokens don't expire quickly in development)
-        const refreshMockSession = {
-          access_token: refreshToken,
-          refresh_token: '',
-          expires_in: 3600,
-          token_type: 'bearer',
-          user: refreshUserData.user
+          return new Response(JSON.stringify({ 
+            user: user,
+            session: refreshedSession,
+            success: true
+          }), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
+        } catch (error) {
+          console.error('Refresh error:', error);
+          return new Response(JSON.stringify({ 
+            error: error.message || 'Session refresh failed',
+            success: false
+          }), { 
+            status: 400,
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          });
         }
-
-        response = { 
-          success: true, 
-          user: refreshUserData.user,
-          session: refreshMockSession
-        }
-        break
 
       default:
-        response = { success: false, error: 'Invalid action' }
+        return new Response(JSON.stringify({ 
+          error: 'Endpoint not found',
+          success: false
+        }), { 
+          status: 404,
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
     }
-
-    return new Response(
-      JSON.stringify(response),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-        status: response.success ? 200 : 400
-      }
-    )
-
   } catch (error) {
-    console.error('Authentication function error:', error)
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Internal server error' 
-      }),
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders,
-        },
-        status: 500
+    console.error('Function error:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Internal server error',
+      success: false
+    }), { 
+      status: 500,
+      headers: { 
+        'Content-Type': 'application/json',
+        ...corsHeaders
       }
-    )
+    });
   }
-})
+});

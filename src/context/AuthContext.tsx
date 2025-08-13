@@ -13,6 +13,9 @@ interface Profile {
   professional_details?: any | null
   verification_status?: string | null
   created_at?: string | null
+  password_set?: boolean | null
+  created_by_therapist?: string | null
+  updated_at?: string | null
 }
 
 interface AuthContextType {
@@ -30,6 +33,7 @@ interface AuthContextType {
   ) => Promise<void>
   signOut: () => Promise<void>
   retryAuth: () => void
+  refreshProfile: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -41,65 +45,84 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [error, setError] = useState<string | null>(null)
   const retryCountRef = useRef(0)
   const maxRetries = 3
+  const initializingRef = useRef(false)
+
+  const initializeAuth = async () => {
+    if (initializingRef.current) return
+    initializingRef.current = true
+    
+    try {
+      setError(null)
+      setLoading(true)
+
+      // Use edge function for session management with timeout
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Authentication request timed out')), 10000)
+      })
+
+      const authPromise = AuthService.getSession()
+      const authResponse = await Promise.race([authPromise, timeoutPromise])
+
+      if (!authResponse.success) {
+        if (authResponse.error) {
+          setError(authResponse.error)
+        }
+        setUser(null)
+        setProfile(null)
+        return
+      }
+
+      setUser(authResponse.user || null)
+      setProfile(authResponse.profile || null)
+      
+      // Reset retry count on success
+      retryCountRef.current = 0
+
+    } catch (error: any) {
+      console.error('Error initializing auth:', error)
+      
+      // Implement retry logic with exponential backoff
+      if (retryCountRef.current < maxRetries) {
+        retryCountRef.current++
+        const delay = Math.min(2000 * Math.pow(2, retryCountRef.current - 1), 10000)
+        console.log(`Retrying auth initialization (${retryCountRef.current}/${maxRetries}) in ${delay}ms`)
+        
+        setTimeout(() => {
+          initializingRef.current = false
+          initializeAuth()
+        }, delay)
+        return
+      }
+      
+      setError(error?.message || 'Authentication service unavailable')
+      setUser(null)
+      setProfile(null)
+    } finally {
+      setLoading(false)
+      initializingRef.current = false
+    }
+  }
+
+  const refreshProfile = async () => {
+    if (!user?.id) return
+
+    try {
+      const profileResponse = await AuthService.fetchUserProfile(user.id)
+      if (profileResponse.success && profileResponse.profile) {
+        setProfile(profileResponse.profile)
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error)
+    }
+  }
 
   useEffect(() => {
     let mounted = true
 
-    const initializeAuth = async () => {
-      if (!mounted) return
-      
-      try {
-        setError(null)
-        setLoading(true)
-
-        // Use edge function for session management
-        const authResponse = await AuthService.getSession()
-
-        if (!authResponse.success) {
-          if (mounted) {
-            setError(authResponse.error || 'Failed to get session')
-            setUser(null)
-            setProfile(null)
-          }
-          return
-        }
-
-        if (mounted) {
-          setUser(authResponse.user || null)
-          setProfile(authResponse.profile || null)
-          if (authResponse.error && !authResponse.user) {
-            setError(authResponse.error)
-          }
-        } else {
-          if (mounted) {
-            setUser(null)
-            setProfile(null)
-          }
-        }
-
-      } catch (error: any) {
-        console.error('Error initializing auth:', error)
-        if (mounted) {
-          // Implement retry logic
-          if (retryCountRef.current < maxRetries) {
-            retryCountRef.current++
-            console.log(`Retrying auth initialization (${retryCountRef.current}/${maxRetries})`)
-            setTimeout(() => initializeAuth(), 2000 * retryCountRef.current)
-            return
-          }
-          
-          setError(error?.message || 'Authentication service unavailable')
-          setUser(null)
-          setProfile(null)
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false)
-        }
-      }
+    // Initialize auth on mount
+    if (mounted) {
+      initializeAuth()
     }
-
-    initializeAuth()
 
     // Listen for auth state changes from Supabase client
     const {
@@ -107,13 +130,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return
 
+      console.log('Auth state change:', event, session?.user?.id)
+
       if (event === 'SIGNED_OUT') {
         setUser(null)
         setProfile(null)
         setError(null)
       } else if (event === 'SIGNED_IN' && session?.user) {
-        // Refresh session data through edge function
-        initializeAuth()
+        // Update user state immediately
+        setUser(session.user)
+        
+        // Fetch fresh profile data
+        try {
+          const profileResponse = await AuthService.fetchUserProfile(session.user.id)
+          if (profileResponse.success && profileResponse.profile) {
+            setProfile(profileResponse.profile)
+          }
+        } catch (error) {
+          console.error('Error fetching profile after sign in:', error)
+        }
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Update user but keep existing profile unless it's null
+        setUser(session.user)
+        if (!profile) {
+          await refreshProfile()
+        }
       }
     })
 
@@ -127,8 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     retryCountRef.current = 0
     setError(null)
     setLoading(true)
-    // Re-run initialization
-    setTimeout(() => window.location.reload(), 100)
+    initializingRef.current = false
+    initializeAuth()
   }
 
   const signIn = async (email: string, password: string) => {
@@ -142,17 +183,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(authResponse.error || 'Sign in failed')
       }
 
-      // Update local state
+      // Update local state immediately
       setUser(authResponse.user)
       setProfile(authResponse.profile)
-      
-      // Also update Supabase client session
-      if (authResponse.session) {
-        await supabase.auth.setSession({
-          access_token: authResponse.session.access_token,
-          refresh_token: authResponse.session.refresh_token || ''
-        })
-      }
       
     } catch (error: any) {
       setError(error.message)
@@ -202,8 +235,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const authResponse = await AuthService.signOut()
       if (!authResponse.success && authResponse.error) {
-        throw new Error(authResponse.error)
+        console.error('Sign out error:', authResponse.error)
+        // Don't throw error for sign out, just log it
       }
+      
+      // Clear local state immediately
+      setUser(null)
+      setProfile(null)
     } catch (error: any) {
       console.error('Sign out error:', error)
       // Don't throw error for sign out, just log it
@@ -212,7 +250,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, error, signIn, signUp, signOut, retryAuth }}
+      value={{ 
+        user, 
+        profile, 
+        loading, 
+        error, 
+        signIn, 
+        signUp, 
+        signOut, 
+        retryAuth,
+        refreshProfile
+      }}
     >
       {children}
     </AuthContext.Provider>
@@ -226,4 +274,3 @@ export const useAuth = () => {
   }
   return context
 }
-
