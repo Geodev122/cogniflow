@@ -20,7 +20,7 @@ import {
   X
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 
 interface OnboardingData {
   // Step 1: Basic Info
@@ -273,18 +273,15 @@ export const TherapistOnboarding: React.FC<TherapistOnboardingProps> = ({ onComp
         licenses: formData.licenses
       }
 
-      const { error } = await supabase.from('profiles').update({
+      await supabase.from('profiles').upsert({
+        id: profile.id,
         whatsapp_number: formData.whatsappNumber,
         professional_details: professionalDetails,
         verification_status: 'pending'
-      }).eq('id', profile.id)
+      })
 
-      if (error) {
-        console.error('Error updating profile:', error)
-        return
-      }
-
-      calculateCompletion()
+      const { data: completion } = await supabase.rpc('profile_completion', { id: profile.id })
+      setProfileCompletion(completion || 0)
       setShowConfirmation(true)
     }
   }

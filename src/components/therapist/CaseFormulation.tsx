@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 import { 
   Stethoscope, 
   Brain, 
@@ -146,8 +146,39 @@ export const CaseFormulation: React.FC<CaseFormulationProps> = ({ caseFile, onUp
   const saveFormulation = async () => {
     setLoading(true)
     try {
-      // This would need to be added to APIService
-      console.log('Save formulation:', formulation)
+      const formulationData = {
+        formulation,
+        lastUpdated: new Date().toISOString(),
+        milestone: 'Goals Defined'
+      }
+
+      const { error } = await supabase
+        .from('client_profiles')
+        .upsert({
+          client_id: caseFile.client.id,
+          therapist_id: profile!.id,
+          notes: JSON.stringify(formulationData),
+          updated_at: new Date().toISOString()
+        })
+
+      if (error) throw error
+
+      // Log milestone
+      await supabase
+        .from('audit_logs')
+        .insert({
+          user_id: profile!.id,
+          action: 'case_formulation_updated',
+          resource_type: 'case',
+          resource_id: null,
+          client_id: caseFile.client.id,
+          details: {
+            milestone: 'Goals Defined',
+            dsm_code: formulation.dsmCode,
+            icd_code: formulation.icdCode
+          }
+        })
+
       onUpdate()
       alert('Case formulation saved successfully!')
     } catch (error) {

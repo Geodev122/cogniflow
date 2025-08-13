@@ -1,12 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 
-export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error(
-    'Supabase credentials are missing. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment configuration.'
-  )
   throw new Error('Missing Supabase environment variables')
 }
 
@@ -17,13 +14,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
     flowType: 'pkce'
   },
-  db: {
-    schema: 'public'
-  },
   global: {
     headers: {
       'x-client-info': 'cogniflow-web'
     }
+  },
+  db: {
+    schema: 'public'
   },
   realtime: {
     params: {
@@ -32,7 +29,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
-// Simplified Database Types
 export type Database = {
   public: {
     Tables: {
@@ -45,12 +41,11 @@ export type Database = {
           email: string
           patient_code: string | null
           whatsapp_number: string | null
-          password_set: boolean | null
+          password_set: boolean
           created_by_therapist: string | null
           professional_details: any | null
           verification_status: string | null
-          created_at: string | null
-          updated_at: string | null
+          created_at: string
         }
         Insert: {
           id: string
@@ -60,51 +55,201 @@ export type Database = {
           email: string
           patient_code?: string | null
           whatsapp_number?: string | null
-          password_set?: boolean | null
+          password_set?: boolean
           created_by_therapist?: string | null
           professional_details?: any | null
           verification_status?: string | null
+          created_at?: string
         }
         Update: {
+          id?: string
           role?: 'therapist' | 'client'
           first_name?: string
           last_name?: string
           email?: string
           patient_code?: string | null
           whatsapp_number?: string | null
-          password_set?: boolean | null
+          password_set?: boolean
           created_by_therapist?: string | null
           professional_details?: any | null
           verification_status?: string | null
+          created_at?: string
         }
       }
-      form_assignments: {
+      therapist_client_relations: {
         Row: {
           id: string
-          therapist_id: string | null
-          client_id: string | null
-          form_type: string
-          form_id: string | null
-          title: string
-          instructions: string | null
-          due_date: string | null
-          status: string | null
-          assigned_at: string | null
-          completed_at: string | null
-          created_at: string | null
+          therapist_id: string
+          client_id: string
+          created_at: string
         }
         Insert: {
-          therapist_id?: string | null
-          client_id?: string | null
-          form_type: string
-          form_id?: string | null
-          title: string
-          instructions?: string | null
-          due_date?: string | null
-          status?: string | null
+          therapist_id: string
+          client_id: string
+          created_at?: string
         }
         Update: {
-          status?: string | null
+          therapist_id?: string
+          client_id?: string
+          created_at?: string
+        }
+      }
+      cbt_worksheets: {
+        Row: {
+          id: string
+          therapist_id: string
+          client_id: string
+          type: string
+          title: string
+          content: any
+          status: 'assigned' | 'in_progress' | 'completed'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          therapist_id: string
+          client_id: string
+          type: string
+          title: string
+          content?: any
+          status?: 'assigned' | 'in_progress' | 'completed'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          therapist_id?: string
+          client_id?: string
+          type?: string
+          title?: string
+          content?: any
+          status?: 'assigned' | 'in_progress' | 'completed'
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      psychometric_forms: {
+        Row: {
+          id: string
+          therapist_id: string
+          client_id: string
+          form_type: string
+          title: string
+          questions: any
+          responses: any
+          score: number
+          status: 'assigned' | 'completed'
+          created_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          therapist_id: string
+          client_id: string
+          form_type: string
+          title: string
+          questions?: any
+          responses?: any
+          score?: number
+          status?: 'assigned' | 'completed'
+          created_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          therapist_id?: string
+          client_id?: string
+          form_type?: string
+          title?: string
+          questions?: any
+          responses?: any
+          score?: number
+          status?: 'assigned' | 'completed'
+          created_at?: string
+          completed_at?: string | null
+        }
+      }
+      therapeutic_exercises: {
+        Row: {
+          id: string
+          therapist_id: string
+          client_id: string
+          exercise_type: string
+          title: string
+          description: string | null
+          game_config: any
+          progress: any
+          status: 'assigned' | 'in_progress' | 'completed'
+          created_at: string
+          last_played_at: string | null
+        }
+        Insert: {
+          therapist_id: string
+          client_id: string
+          exercise_type: string
+          title: string
+          description?: string | null
+          game_config?: any
+          progress?: any
+          status?: 'assigned' | 'in_progress' | 'completed'
+          created_at?: string
+          last_played_at?: string | null
+        }
+        Update: {
+          therapist_id?: string
+          client_id?: string
+          exercise_type?: string
+          title?: string
+          description?: string | null
+          game_config?: any
+          progress?: any
+          status?: 'assigned' | 'in_progress' | 'completed'
+          created_at?: string
+          last_played_at?: string | null
+        }
+      }
+      worksheets: {
+        Row: {
+          id: string
+          therapist_id: string
+          title: string
+          content: any
+          created_at: string
+        }
+        Insert: {
+          therapist_id: string
+          title: string
+          content?: any
+          created_at?: string
+        }
+        Update: {
+          therapist_id?: string
+          title?: string
+          content?: any
+          created_at?: string
+        }
+      }
+      worksheet_assignments: {
+        Row: {
+          id: string
+          worksheet_id: string
+          client_id: string
+          status: 'assigned' | 'in_progress' | 'completed'
+          responses: any
+          assigned_at: string
+          completed_at: string | null
+        }
+        Insert: {
+          worksheet_id: string
+          client_id: string
+          status?: 'assigned' | 'in_progress' | 'completed'
+          responses?: any
+          assigned_at?: string
+          completed_at?: string | null
+        }
+        Update: {
+          worksheet_id?: string
+          client_id?: string
+          status?: 'assigned' | 'in_progress' | 'completed'
+          responses?: any
+          assigned_at?: string
           completed_at?: string | null
         }
       }
@@ -116,7 +261,7 @@ export type Database = {
           value: number
           source_type: 'psychometric' | 'exercise' | 'manual'
           source_id: string | null
-          recorded_at: string | null
+          recorded_at: string
         }
         Insert: {
           client_id: string
@@ -124,60 +269,61 @@ export type Database = {
           value: number
           source_type: 'psychometric' | 'exercise' | 'manual'
           source_id?: string | null
-        }
-      }
-      client_profiles: {
-        Row: {
-          id: string
-          client_id: string | null
-          therapist_id: string | null
-          emergency_contact_name: string | null
-          emergency_contact_phone: string | null
-          emergency_contact_relationship: string | null
-          medical_history: string | null
-          current_medications: string | null
-          presenting_concerns: string | null
-          therapy_history: string | null
-          risk_level: string | null
-          notes: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          client_id?: string | null
-          therapist_id?: string | null
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_contact_relationship?: string | null
-          medical_history?: string | null
-          current_medications?: string | null
-          presenting_concerns?: string | null
-          therapy_history?: string | null
-          risk_level?: string | null
-          notes?: string | null
+          recorded_at?: string
         }
         Update: {
-          emergency_contact_name?: string | null
-          emergency_contact_phone?: string | null
-          emergency_contact_relationship?: string | null
-          medical_history?: string | null
-          current_medications?: string | null
-          presenting_concerns?: string | null
-          therapy_history?: string | null
-          risk_level?: string | null
-          notes?: string | null
+          client_id?: string
+          metric_type?: string
+          value?: number
+          source_type?: 'psychometric' | 'exercise' | 'manual'
+          source_id?: string | null
+          recorded_at?: string
         }
-      }
-      therapist_client_relations: {
+      },
+      session_notes: {
         Row: {
           id: string
-          therapist_id: string
-          client_id: string
-          created_at: string | null
+          appointment_id: string | null
+          therapist_id: string | null
+          progress_notes: string | null
+          created_at: string
         }
         Insert: {
-          therapist_id: string
-          client_id: string
+          id?: string
+          appointment_id?: string | null
+          therapist_id?: string | null
+          progress_notes?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          appointment_id?: string | null
+          therapist_id?: string | null
+          progress_notes?: string | null
+          created_at?: string
+        }
+      },
+      document_uploads: {
+        Row: {
+          id: string
+          session_id: string | null
+          therapist_id: string | null
+          file_url: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          session_id?: string | null
+          therapist_id?: string | null
+          file_url: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          session_id?: string | null
+          therapist_id?: string | null
+          file_url?: string
+          created_at?: string
         }
       }
     }

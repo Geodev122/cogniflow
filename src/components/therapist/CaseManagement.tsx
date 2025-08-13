@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { APIService } from '../../lib/api'
-import { useAuth } from '../../context/AuthContext'
-import { FileText, User, Calendar, TrendingUp, ClipboardList, Plus, Search, Filter, Eye, Clock, Target, BookOpen, MessageSquare, Send, PlayCircle, PlusCircle, Stethoscope, Archive } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
+import { CaseFormulation } from './CaseFormulation'
+import { InBetweenSessions } from './InBetweenSessions'
+import { FileText, User, Calendar, TrendingUp, ClipboardList, Plus, Search, Filter, Eye, BarChart3, Clock, CheckCircle, AlertTriangle, Brain, Target, Activity, BookOpen, Award, MessageSquare, Send, PlayCircle, PlusCircle, Stethoscope, Baseline as Timeline, Archive } from 'lucide-react'
 
 interface Client {
   id: string
@@ -12,37 +13,20 @@ interface Client {
   created_at: string
 }
 
-interface TimelineEvent {
-  id: string
-  event_date: string
-  description: string
-  event_type: string
-}
-
-interface ProgressCheckpoint {
-  id: string
-  checkpoint_date: string
-  note: string
-  status: string
-}
-
-interface CaseFile {
-  client: Client
-  sessionCount: number
-  lastSession?: string
-  nextAppointment?: string
-  assessments: Assessment[]
-  treatmentPlanId?: string
-  treatmentPlanTitle?: string
-  goals: Goal[]
-  assignments: Assignment[]
-  riskLevel: string
-  progressSummary: string
-  caseNotes: string
-  timeline: TimelineEvent[]
-  checkpoints: ProgressCheckpoint[]
-  dischargeNotes: string
-}
+  interface CaseFile {
+    client: Client
+    sessionCount: number
+    lastSession?: string
+    nextAppointment?: string
+    assessments: Assessment[]
+    treatmentPlanId?: string
+    treatmentPlanTitle?: string
+    goals: Goal[]
+    assignments: Assignment[]
+    riskLevel: string
+    progressSummary: string
+    caseNotes: string
+  }
 
 interface Assessment {
   id: string
@@ -79,35 +63,169 @@ interface Assignment {
 }
 
 export const CaseManagement: React.FC = () => {
+  const [caseFiles, setCaseFiles] = useState<CaseFile[]>([])
   const [selectedCase, setSelectedCase] = useState<CaseFile | null>(null)
-  type Tab = 'overview' | 'formulation' | 'goals' | 'assignments' | 'progress' | 'notes' | 'timeline' | 'discharge'
-  const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'goals' | 'assignments' | 'progress' | 'notes'>('overview')
   const [searchTerm, setSearchTerm] = useState('')
   const [riskFilter, setRiskFilter] = useState('all')
   const [loading, setLoading] = useState(true)
-  const [dischargeNote, setDischargeNote] = useState('')
+  const [showNewAssignment, setShowNewAssignment] = useState(false)
   const { profile } = useAuth()
 
-  const fetchCaseFiles = async () => {
-    return await APIService.getCases()
-  }
+  useEffect(() => {
+    if (profile) {
+      fetchCaseFiles()
+    }
+  }, [profile])
 
-  const { data: caseFiles = [], isLoading, error } = useQuery({
-    queryKey: ['case-files', profile?.id],
-    queryFn: fetchCaseFiles,
-    enabled: !!profile?.id
-  })
+  const fetchCaseFiles = async () => {
+    if (!profile) return
+
+    try {
+      // Get clients for this therapist
+      const { data: relations, error: relationsError } = await supabase
+        .from('therapist_client_relations')
+        .select(`
+          client_id,
+          profiles!therapist_client_relations_client_id_fkey (
+            id,
+            first_name,
+            last_name,
+            email,
+            created_at
+          )
+        `)
+        .eq('therapist_id', profile.id)
+
+      if (relationsError) throw relationsError
+
+        const cases = await Promise.all(
+          (relations || []).map(async (relation: { profiles: Client }) => {
+            const client: Client = relation.profiles
+
+            // Get session count
+            const { data: sessions } = await supabase
+              .from('appointments')
+              .select('id, appointment_date, status')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
+
+            // Get assessments
+            const { data: assessments } = await supabase
+              .from('assessment_reports')
+              .select('*')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
+              .order('created_at', { ascending: false })
+
+            // Get treatment plan
+            const { data: plan } = await supabase
+              .from('treatment_plans')
+              .select('id, title')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
+              .single()
+
+            // Get goals with interventions
+            let goals: Goal[] = []
+            if (plan) {
+              const { data: goalData } = await supabase
+                .from('therapy_goals')
+                .select('*')
+                .eq('treatment_plan_id', plan.id)
+                .order('created_at', { ascending: false })
+
+              goals = await Promise.all(
+                (goalData || []).map(async (g: { id: string; goal_text: string; target_date: string | null; progress: number; status: string }) => {
+
+                  return {
+                    id: g.id,
+                    title: g.goal_text,
+                    description: '',
+                    target_date: g.target_date || '',
+                    progress: g.progress_percentage,
+                    status: g.status,
+                    interventions: []
+                  }
+                })
+              )
+            }
+
+            // Get assignments
+            const { data: assignments } = await supabase
+              .from('form_assignments')
+              .select('*')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
+              .order('assigned_at', { ascending: false })
+
+            // Get client profile for risk level
+            const { data: clientProfile } = await supabase
+              .from('client_profiles')
+              .select('risk_level, notes')
+              .eq('client_id', client.id)
+              .eq('therapist_id', profile.id)
+              .single()
+
+            const completedSessions = sessions?.filter(s => s.status === 'completed') || []
+            const upcomingSessions = sessions?.filter(s => s.status === 'scheduled' && new Date(s.appointment_date) > new Date()) || []
+
+            return {
+              client,
+              sessionCount: completedSessions.length,
+              lastSession: completedSessions.length > 0 ? completedSessions[completedSessions.length - 1].appointment_date : undefined,
+              nextAppointment: upcomingSessions.length > 0 ? upcomingSessions[0].appointment_date : undefined,
+              assessments: assessments?.map(a => ({
+                id: a.id,
+                assessment_name: a.title,
+                score: a.content?.score || 0,
+                max_score: a.content?.max_score || 100,
+                date: a.created_at,
+                interpretation: a.content?.interpretation || ''
+              })) || [],
+              treatmentPlanId: plan?.id,
+              treatmentPlanTitle: plan?.title,
+              goals,
+              assignments: assignments?.map(a => ({
+                id: a.id,
+                type: a.form_type as 'worksheet' | 'exercise' | 'assessment' | 'homework',
+                title: a.title,
+                description: a.instructions || '',
+                due_date: a.due_date,
+                status: a.status as 'assigned' | 'in_progress' | 'completed' | 'overdue',
+                assigned_date: a.assigned_at
+              })) || [],
+              riskLevel: clientProfile?.risk_level || 'low',
+              progressSummary: clientProfile?.notes || 'No progress notes available',
+              caseNotes: clientProfile?.notes || ''
+            }
+          })
+        )
+
+      setCaseFiles(cases)
+    } catch (error) {
+      console.error('Error fetching case files:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleCreatePlan = async () => {
     if (!selectedCase || !profile) return
     const title = prompt('Plan title')
     if (!title) return
-    
-    try {
-      await APIService.createTreatmentPlan(selectedCase.client.id, title)
-      // Refresh data would happen here
-    } catch (error) {
-      alert('Error creating treatment plan. Please try again.')
+    const { error } = await supabase
+      .from('treatment_plans')
+      .insert({
+        client_id: selectedCase.client.id,
+        therapist_id: profile.id,
+        title: title,
+        status: 'active'
+      })
+    if (error) {
+      console.error('Error creating plan:', error)
+    } else {
+      fetchCaseFiles()
     }
   }
 
@@ -115,70 +233,57 @@ export const CaseManagement: React.FC = () => {
     if (!selectedCase?.treatmentPlanId) return
     const text = prompt('Goal description')
     if (!text) return
-    
-    try {
-      await APIService.addGoal(selectedCase.treatmentPlanId, text)
-      // Refresh data would happen here
-    } catch (error) {
-      alert('Error adding goal. Please try again.')
+    const { error } = await supabase
+      .from('therapy_goals')
+      .insert({
+        treatment_plan_id: selectedCase.treatmentPlanId,
+        goal_text: text,
+        progress_percentage: 0,
+        status: 'active'
+      })
+    if (error) {
+      console.error('Error adding goal:', error)
+    } else {
+      fetchCaseFiles()
     }
   }
 
   const handleCompleteGoal = async (goalId: string) => {
-    try {
-      // This would need to be added to APIService
-      console.log('Complete goal:', goalId)
-    } catch (error) {
-      alert('Error updating goal. Please try again.')
+    const { error } = await supabase
+      .from('therapy_goals')
+      .update({
+        progress_percentage: 100,
+        status: 'achieved'
+      })
+      .eq('id', goalId)
+    if (error) {
+      console.error('Error updating goal:', error)
+    } else {
+      fetchCaseFiles()
     }
   }
 
   const handleAddIntervention = async (goalId: string) => {
     const description = prompt('Intervention description')
     if (!description) return
+    // For now, we'll add interventions as notes to the goal
+    // This can be expanded later with a proper interventions table
+    const { data: goal } = await supabase
+      .from('therapy_goals')
+      .select('notes')
+      .eq('id', goalId)
+      .single()
     
-    try {
-      // This would need to be added to APIService
-      console.log('Add intervention:', goalId, description)
-    } catch (error) {
-      alert('Error adding intervention. Please try again.')
-    }
-  }
-
-  const handleAddTimelineEvent = async () => {
-    if (!selectedCase) return
-    const description = prompt('Event description')
-    if (!description) return
-
-    try {
-      // This would need to be added to APIService
-      console.log('Add timeline event:', description)
-    } catch (error) {
-      alert('Error adding timeline event. Please try again.')
-    }
-  }
-
-  const handleAddCheckpoint = async () => {
-    if (!selectedCase) return
-    const note = prompt('Progress note')
-    if (!note) return
-
-    try {
-      // This would need to be added to APIService
-      console.log('Add checkpoint:', note)
-    } catch (error) {
-      alert('Error adding checkpoint. Please try again.')
-    }
-  }
-
-  const handleSaveDischargeNotes = async () => {
-    if (!selectedCase) return
+    const existingNotes = goal?.notes || ''
+    const updatedNotes = existingNotes ? `${existingNotes}\n• ${description}` : `• ${description}`
     
-    try {
-      // This would need to be added to APIService
-      console.log('Save discharge notes:', dischargeNote)
-    } catch (error) {
-      alert('Error saving discharge notes. Please try again.')
+    const { error } = await supabase
+      .from('therapy_goals')
+      .update({ notes: updatedNotes })
+      .eq('id', goalId)
+    
+    if (!error) {
+      fetchCaseFiles()
     }
   }
 
@@ -221,21 +326,10 @@ export const CaseManagement: React.FC = () => {
     })
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <div className="flex items-center space-x-2">
-          <AlertTriangle className="w-5 h-5 text-red-600" />
-          <span className="text-red-800">{error instanceof Error ? error.message : 'Failed to load cases'}</span>
-        </div>
       </div>
     )
   }
@@ -269,6 +363,7 @@ export const CaseManagement: React.FC = () => {
             </div>
               <div className="flex space-x-2">
                 <button
+                  onClick={() => setShowNewAssignment(true)}
                   className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                 >
                   <Send className="w-4 h-4 mr-1" />
@@ -286,16 +381,15 @@ export const CaseManagement: React.FC = () => {
               { id: 'formulation', name: 'Case Formulation', icon: Stethoscope },
               { id: 'goals', name: 'Goals & Treatment', icon: Target },
               { id: 'assignments', name: 'Assignments', icon: ClipboardList },
-              { id: 'timeline', name: 'Session Timeline', icon: Clock },
+              { id: 'between-sessions', name: 'Between Sessions', icon: Timeline },
               { id: 'progress', name: 'Progress Tracking', icon: TrendingUp },
-              { id: 'notes', name: 'Case Notes', icon: MessageSquare },
-              { id: 'discharge', name: 'Discharge', icon: Archive }
+              { id: 'notes', name: 'Case Notes', icon: MessageSquare }
             ].map((tab) => {
               const Icon = tab.icon
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as Tab)}
+                  onClick={() => setActiveTab(tab.id as 'overview' | 'goals' | 'assignments' | 'progress' | 'notes')}
                   className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'
@@ -399,10 +493,10 @@ export const CaseManagement: React.FC = () => {
         )}
 
         {activeTab === 'formulation' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Case Formulation</h3>
-            <p className="text-gray-600">Case formulation features will be available soon.</p>
-          </div>
+          <CaseFormulation 
+            caseFile={selectedCase}
+            onUpdate={fetchCaseFiles}
+          />
         )}
 
         {activeTab === 'goals' && (
@@ -502,6 +596,7 @@ export const CaseManagement: React.FC = () => {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-lg font-semibold text-gray-900">Client Assignments</h3>
               <button
+                onClick={() => setShowNewAssignment(true)}
                 className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -544,63 +639,16 @@ export const CaseManagement: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'timeline' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Session Timeline</h3>
-              <button
-                onClick={handleAddTimelineEvent}
-                className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-              >
-                <PlusCircle className="w-4 h-4 mr-1" />
-                Add Event
-              </button>
-            </div>
-            {selectedCase.timeline.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No timeline events</p>
-            ) : (
-              <div className="space-y-3">
-                {selectedCase.timeline.map((event) => (
-                  <div key={event.id} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-900">{event.description}</p>
-                      <p className="text-sm text-gray-600">{formatDate(event.event_date)}</p>
-                    </div>
-                    <span className="text-xs text-gray-500">{event.event_type}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         {activeTab === 'progress' && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">Progress Checkpoints</h3>
-              <button
-                onClick={handleAddCheckpoint}
-                className="inline-flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-              >
-                <PlusCircle className="w-4 h-4 mr-1" />
-                Add Checkpoint
-              </button>
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">Progress Tracking</h3>
+            <div className="text-center py-12 text-gray-500">
+              <BarChart3 className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Progress Charts</h3>
+              <p className="text-gray-600">
+                Visual progress tracking and analytics will be displayed here.
+              </p>
             </div>
-            {selectedCase.checkpoints.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No checkpoints recorded</p>
-            ) : (
-              <div className="space-y-3">
-                {selectedCase.checkpoints.map((cp) => (
-                  <div key={cp.id} className="p-3 bg-gray-50 rounded-lg flex items-center justify-between">
-                    <div>
-                      <p className="font-medium text-gray-900">{cp.note}</p>
-                      <p className="text-sm text-gray-600">{formatDate(cp.checkpoint_date)}</p>
-                    </div>
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(cp.status)}`}>{cp.status}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
@@ -615,26 +663,6 @@ export const CaseManagement: React.FC = () => {
             <div className="mt-4 flex justify-end">
               <button className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Save Notes
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'discharge' && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Discharge Notes</h3>
-            <textarea
-              className="w-full h-64 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Enter discharge summary..."
-              value={dischargeNote}
-              onChange={(e) => setDischargeNote(e.target.value)}
-            />
-            <div className="mt-4 flex justify-end">
-              <button
-                onClick={handleSaveDischargeNotes}
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Save Discharge Notes
               </button>
             </div>
           </div>
