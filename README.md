@@ -190,7 +190,6 @@ npm run build
 Ensure these are set in your production environment:
 - `VITE_SUPABASE_URL` - Your Supabase project URL
 - `VITE_SUPABASE_ANON_KEY` - Your Supabase anonymous key
-- `VITE_SUPABASE_FUNCTIONS_URL` - Base URL for your Supabase Edge Functions
 
 ## 🤝 Contributing
 
