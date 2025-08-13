@@ -575,17 +575,6 @@ export const TherapistDashboard: React.FC = () => {
       )}
 
       <div className="flex h-[calc(100vh-4rem)]">
-                </div>
-                <div className="hidden sm:block">
-                  <span>{profile?.first_name} {profile?.last_name}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex h-[calc(100vh-4rem)]">
         {/* Mobile Menu Button */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
