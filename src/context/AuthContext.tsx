@@ -46,13 +46,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const retryCountRef = useRef(0)
   const maxRetries = 3
   const initializingRef = useRef(false)
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [currentPath, setCurrentPath] = useState(
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  )
+
+  // Track navigation changes without requiring router context
+  useEffect(() => {
+    const handleLocationChange = () => setCurrentPath(window.location.pathname)
+
+    const originalPushState = history.pushState
+    const originalReplaceState = history.replaceState
+
+    history.pushState = function (...args: any[]) {
+      originalPushState.apply(this, args)
+      handleLocationChange()
+    }
+
+    history.replaceState = function (...args: any[]) {
+      originalReplaceState.apply(this, args)
+      handleLocationChange()
+    }
+
+    window.addEventListener('popstate', handleLocationChange)
+
+    return () => {
+      history.pushState = originalPushState
+      history.replaceState = originalReplaceState
+      window.removeEventListener('popstate', handleLocationChange)
+    }
+  }, [])
 
   const initializeAuth = async () => {
     if (initializingRef.current) return
     initializingRef.current = true
     
     try {
-      setError(null)
       setLoading(true)
 
       // Use edge function for session management with timeout
@@ -74,29 +103,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUser(authResponse.user || null)
       setProfile(authResponse.profile || null)
-      
+
       // Reset retry count on success
       retryCountRef.current = 0
+      setError(null)
 
     } catch (error: any) {
       console.error('Error initializing auth:', error)
       
-      // Implement retry logic with exponential backoff
-      if (retryCountRef.current < maxRetries) {
-        retryCountRef.current++
-        const delay = Math.min(2000 * Math.pow(2, retryCountRef.current - 1), 10000)
-        console.log(`Retrying auth initialization (${retryCountRef.current}/${maxRetries}) in ${delay}ms`)
-        
-        setTimeout(() => {
-          initializingRef.current = false
-          initializeAuth()
-        }, delay)
-        return
-      }
-      
       setError(error?.message || 'Authentication service unavailable')
       setUser(null)
       setProfile(null)
+
+      if (
+        retryCountRef.current < maxRetries &&
+        !['/login', '/register'].includes(currentPath)
+      ) {
+        retryCountRef.current++
+        const delay = Math.min(2000 * Math.pow(2, retryCountRef.current - 1), 10000)
+        console.log(`Retrying auth initialization (${retryCountRef.current}/${maxRetries}) in ${delay}ms`)
+
+        retryTimeoutRef.current = setTimeout(() => {
+          initializingRef.current = false
+          initializeAuth()
+        }, delay)
+      }
     } finally {
       setLoading(false)
       initializingRef.current = false
@@ -164,7 +195,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
+  useEffect(() => {
+    if (['/login', '/register'].includes(currentPath) && retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = null
+    }
+  }, [currentPath])
+
   const retryAuth = () => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current)
+      retryTimeoutRef.current = null
+    }
     retryCountRef.current = 0
     setError(null)
     setLoading(true)
