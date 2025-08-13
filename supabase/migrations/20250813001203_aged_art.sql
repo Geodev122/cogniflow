@@ -1,20 +1,16 @@
-/*
-  # Fix Function Search Path Security Warnings
+-- Drop existing functions
+DROP FUNCTION IF EXISTS public.is_client();
+DROP FUNCTION IF EXISTS public.profile_completion(user_id uuid);
+DROP FUNCTION IF EXISTS public.run_security_diagnostics();
+DROP FUNCTION IF EXISTS public.get_therapist_insights(therapist_id uuid);
+DROP FUNCTION IF EXISTS public.insert_progress_metric(p_client_id uuid, p_metric_type text, p_value numeric, p_source_type text, p_source_id uuid);
+DROP FUNCTION IF EXISTS public.diagnose_security_invoker();
+DROP FUNCTION IF EXISTS public.insert_therapist_insight(p_therapist_id uuid, p_patient_id uuid, p_metric_type text, p_metric_value numeric, p_metric_context jsonb);
+DROP FUNCTION IF EXISTS public.get_client_data(client_id uuid);
+DROP FUNCTION IF EXISTS public.update_user_role(p_user_id uuid, p_role text);
+DROP FUNCTION IF EXISTS public.get_patient_insights_summary(patient_id uuid);
 
-  1. Security Fixes
-    - Set search_path = 'public' for all functions to prevent SQL injection
-    - Use SECURITY DEFINER where appropriate for elevated privileges
-    - Ensure consistent security model across all functions
-
-  2. Functions Updated
-    - is_client: Role checking function
-    - profile_completion: Profile completion calculation
-    - run_security_diagnostics: Security diagnostic function
-    - get_therapist_insights: Therapist analytics function
-    - insert_progress_metric: Progress tracking function
-    - diagnose_security_invoker: Security analysis function
-    - insert_therapist_insight: Therapist insight logging
-*/
+-- Recreation of functions will happen in the previous script
 
 -- Fix is_client function
 CREATE OR REPLACE FUNCTION public.is_client()
@@ -68,6 +64,7 @@ BEGIN
   RETURN completion_score;
 END;
 $$;
+
 
 -- Fix run_security_diagnostics function
 CREATE OR REPLACE FUNCTION public.run_security_diagnostics()
