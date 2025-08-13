@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { AuthService } from '../lib/auth'
@@ -48,7 +47,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const maxRetries = 3
   const initializingRef = useRef(false)
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const location = useLocation()
+  const [currentPath, setCurrentPath] = useState(
+    typeof window !== 'undefined' ? window.location.pathname : '/'
+  )
+
+  // Track navigation changes without requiring router context
+  useEffect(() => {
+    const handleLocationChange = () => setCurrentPath(window.location.pathname)
+
+    const originalPushState = history.pushState
+    const originalReplaceState = history.replaceState
+
+    history.pushState = function (...args: any[]) {
+      originalPushState.apply(this, args)
+      handleLocationChange()
+    }
+
+    history.replaceState = function (...args: any[]) {
+      originalReplaceState.apply(this, args)
+      handleLocationChange()
+    }
+
+    window.addEventListener('popstate', handleLocationChange)
+
+    return () => {
+      history.pushState = originalPushState
+      history.replaceState = originalReplaceState
+      window.removeEventListener('popstate', handleLocationChange)
+    }
+  }, [])
 
   const initializeAuth = async () => {
     if (initializingRef.current) return
@@ -90,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (
         retryCountRef.current < maxRetries &&
-        !['/login', '/register'].includes(location.pathname)
+        !['/login', '/register'].includes(currentPath)
       ) {
         retryCountRef.current++
         const delay = Math.min(2000 * Math.pow(2, retryCountRef.current - 1), 10000)
@@ -168,12 +195,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
-  useEffect(() => {
-    if (['/login', '/register'].includes(location.pathname) && retryTimeoutRef.current) {
+   useEffect(() => {
+    if (['/login', '/register'].includes(currentPath) && retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current)
       retryTimeoutRef.current = null
     }
-  }, [location.pathname])
+  }, [currentPath])
 
   const retryAuth = () => {
     if (retryTimeoutRef.current) {
