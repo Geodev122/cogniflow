@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { AuthService } from '../lib/auth'
 
 interface Profile {
   id: string
@@ -77,36 +76,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
+  // Direct profile fetching function
+  const fetchProfileDirect = async (userId: string): Promise<Profile | null> => {
+    try {
+      console.log('Fetching profile directly for user:', userId)
+      
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select(`
+          id, 
+          role, 
+          first_name, 
+          last_name, 
+          email,
+          whatsapp_number,
+          password_set,
+          created_by_therapist,
+          professional_details,
+          verification_status,
+          created_at,
+          updated_at
+        `)
+        .eq('id', userId)
+        .single()
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError)
+        return null
+      }
+
+      console.log('Profile fetched successfully:', profileData)
+      return profileData
+    } catch (error) {
+      console.error('Direct profile fetch error:', error)
+      return null
+    }
+  }
+
   const initializeAuth = async () => {
     if (initializingRef.current) return
     initializingRef.current = true
     
     try {
       setLoading(true)
+      console.log('Initializing auth...')
 
-      // Use edge function for session management with timeout
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Authentication request timed out')), 30000)
-      })
+      // First, check local session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError)
+        throw new Error(`Session error: ${sessionError.message}`)
+      }
 
-      const authPromise = AuthService.getSession()
-      const authResponse = await Promise.race([authPromise, timeoutPromise])
-
-      if (!authResponse.success) {
-        if (authResponse.error) {
-          setError(authResponse.error)
-        }
+      if (!session?.user) {
+        console.log('No active session found')
         setUser(null)
         setProfile(null)
+        setError(null)
         return
       }
 
-      setUser(authResponse.user || null)
-      setProfile(authResponse.profile || null)
+      console.log('Active session found for user:', session.user.id)
+      setUser(session.user)
+
+      // Fetch profile directly from database
+      const profileData = await fetchProfileDirect(session.user.id)
+      
+      if (profileData) {
+        console.log('Profile loaded successfully')
+        setProfile(profileData)
+        setError(null)
+      } else {
+        console.warn('No profile found for user')
+        setProfile(null)
+        setError('Profile not found. Please complete your registration.')
+      }
 
       // Reset retry count on success
       retryCountRef.current = 0
-      setError(null)
 
     } catch (error: any) {
       console.error('Error initializing auth:', error)
@@ -138,9 +186,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user?.id) return
 
     try {
-      const profileResponse = await AuthService.fetchUserProfile(user.id)
-      if (profileResponse.success && profileResponse.profile) {
-        setProfile(profileResponse.profile)
+      console.log('Refreshing profile for user:', user.id)
+      const profileData = await fetchProfileDirect(user.id)
+      if (profileData) {
+        setProfile(profileData)
       }
     } catch (error) {
       console.error('Error refreshing profile:', error)
@@ -172,13 +221,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(session.user)
         
         // Fetch fresh profile data
-        try {
-          const profileResponse = await AuthService.fetchUserProfile(session.user.id)
-          if (profileResponse.success && profileResponse.profile) {
-            setProfile(profileResponse.profile)
-          }
-        } catch (error) {
-          console.error('Error fetching profile after sign in:', error)
+        const profileData = await fetchProfileDirect(session.user.id)
+        if (profileData) {
+          setProfile(profileData)
         }
       } else if (event === 'TOKEN_REFRESHED' && session?.user) {
         // Update user but keep existing profile unless it's null
@@ -195,7 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
-   useEffect(() => {
+  useEffect(() => {
     if (['/login', '/register'].includes(currentPath) && retryTimeoutRef.current) {
       clearTimeout(retryTimeoutRef.current)
       retryTimeoutRef.current = null
@@ -219,17 +264,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true)
 
     try {
-      const authResponse = await AuthService.signIn(email, password)
+      console.log('Signing in user:', email)
       
-      if (!authResponse.success) {
-        throw new Error(authResponse.error || 'Sign in failed')
+      // Use Supabase client directly for more reliable authentication
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      })
+
+      if (authError) {
+        throw new Error(authError.message)
       }
 
+      if (!data.user || !data.session) {
+        throw new Error('Authentication failed - no user or session returned')
+      }
+
+      console.log('Sign in successful, fetching profile...')
+      
       // Update local state immediately
-      setUser(authResponse.user)
-      setProfile(authResponse.profile)
+      setUser(data.user)
+      
+      // Fetch profile directly
+      const profileData = await fetchProfileDirect(data.user.id)
+      if (profileData) {
+        setProfile(profileData)
+      } else {
+        throw new Error('Profile not found after sign in')
+      }
       
     } catch (error: any) {
+      console.error('Sign in error:', error)
       setError(error.message)
       throw error
     } finally {
@@ -248,22 +313,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true)
 
     try {
-      const authResponse = await AuthService.signUp(email, password, {
-        first_name: firstName,
-        last_name: lastName,
-        role: role
+      console.log('Signing up user:', email, 'as', role)
+      
+      // Use Supabase client directly
+      const { data, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role,
+            first_name: firstName,
+            last_name: lastName
+          }
+        }
       })
 
-      if (!authResponse.success) {
-        throw new Error(authResponse.error || 'Sign up failed')
+      if (authError) {
+        throw new Error(authError.message)
       }
+
+      if (!data.user) {
+        throw new Error('User creation failed')
+      }
+
+      console.log('Sign up successful for user:', data.user.id)
       
       // Update local state if user was created
-      if (authResponse.user) {
-        setUser(authResponse.user)
-      }
+      setUser(data.user)
       
     } catch (error: any) {
+      console.error('Sign up error:', error)
       setError(error.message)
       throw error
     } finally {
@@ -275,9 +354,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null)
     
     try {
-      const authResponse = await AuthService.signOut()
-      if (!authResponse.success && authResponse.error) {
-        console.error('Sign out error:', authResponse.error)
+      console.log('Signing out user')
+      
+      // Use Supabase client directly
+      const { error } = await supabase.auth.signOut()
+      
+      if (error) {
+        console.error('Sign out error:', error)
         // Don't throw error for sign out, just log it
       }
       

@@ -6,13 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-interface ClientData {
-  assignments: any[]
-  progressData: any[]
-  profile: any
-  stats: any
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -43,44 +36,53 @@ Deno.serve(async (req: Request) => {
     }
 
     const url = new URL(req.url);
-    const path = url.pathname.replace('/client-operations', '');
+    const path = url.pathname.split('/').pop() || '';
 
     switch (path) {
-      case '/dashboard-data':
+      case 'dashboard-data':
         try {
           // Get client profile
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', user.id)
             .single();
 
-          if (profile?.role !== 'client') {
-            return new Response(JSON.stringify({ error: 'Access denied' }), {
+          if (profileError || profile?.role !== 'client') {
+            return new Response(JSON.stringify({ error: 'Access denied or profile not found' }), {
               status: 403,
               headers: { 'Content-Type': 'application/json', ...corsHeaders }
             });
           }
 
-          // Get assignments
-          const { data: assignments } = await supabase
+          // Get assignments with error handling
+          const { data: assignments, error: assignmentsError } = await supabase
             .from('form_assignments')
-            .select('id, title, form_type, status, assigned_at, completed_at, instructions, due_date')
+            .select('id, title, form_type, status, assigned_at, completed_at, instructions, due_date, created_at')
             .eq('client_id', user.id)
             .order('assigned_at', { ascending: false });
 
-          // Get progress data
-          const { data: progressData } = await supabase
+          if (assignmentsError) {
+            console.error('Assignments fetch error:', assignmentsError);
+          }
+
+          // Get progress data with error handling
+          const { data: progressData, error: progressError } = await supabase
             .from('progress_tracking')
             .select('recorded_at, value, metric_type')
             .eq('client_id', user.id)
             .order('recorded_at', { ascending: true });
 
-          // Calculate stats
-          const worksheets = assignments?.filter(a => a.form_type === 'worksheet') || [];
-          const assessments = assignments?.filter(a => a.form_type === 'psychometric') || [];
-          const exercises = assignments?.filter(a => a.form_type === 'exercise') || [];
-          const completed = assignments?.filter(a => a.status === 'completed') || [];
+          if (progressError) {
+            console.error('Progress data fetch error:', progressError);
+          }
+
+          // Calculate stats safely
+          const safeAssignments = assignments || [];
+          const worksheets = safeAssignments.filter(a => a.form_type === 'worksheet');
+          const assessments = safeAssignments.filter(a => a.form_type === 'psychometric');
+          const exercises = safeAssignments.filter(a => a.form_type === 'exercise');
+          const completed = safeAssignments.filter(a => a.status === 'completed');
 
           const stats = {
             worksheets: worksheets.length,
@@ -89,8 +91,8 @@ Deno.serve(async (req: Request) => {
             completed: completed.length
           };
 
-          const clientData: ClientData = {
-            assignments: assignments || [],
+          const clientData = {
+            assignments: safeAssignments,
             progressData: progressData || [],
             profile,
             stats
@@ -100,13 +102,19 @@ Deno.serve(async (req: Request) => {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         } catch (error) {
-          return new Response(JSON.stringify({ error: error.message }), {
+          console.error('Dashboard data error:', error);
+          return new Response(JSON.stringify({ 
+            error: error.message,
+            assignments: [],
+            progressData: [],
+            stats: { worksheets: 0, assessments: 0, exercises: 0, completed: 0 }
+          }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         }
 
-      case '/update-assignment':
+      case 'update-assignment':
         if (req.method !== 'PUT') {
           return new Response(JSON.stringify({ error: 'Method not allowed' }), {
             status: 405,
@@ -165,6 +173,7 @@ Deno.serve(async (req: Request) => {
         });
     }
   } catch (error) {
+    console.error('Function error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }

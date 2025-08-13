@@ -36,26 +36,26 @@ Deno.serve(async (req: Request) => {
     }
 
     // Verify therapist role
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
 
-    if (profile?.role !== 'therapist') {
-      return new Response(JSON.stringify({ error: 'Access denied' }), {
+    if (profileError || profile?.role !== 'therapist') {
+      return new Response(JSON.stringify({ error: 'Access denied or profile not found' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
     const url = new URL(req.url);
-    const path = url.pathname.replace('/case-management', '');
+    const path = url.pathname.split('/').pop() || '';
 
     switch (path) {
-      case '/cases':
+      case 'cases':
         try {
-          const { data: relations } = await supabase
+          const { data: relations, error: relationsError } = await supabase
             .from('therapist_client_relations')
             .select(`
               client_id,
@@ -65,27 +65,43 @@ Deno.serve(async (req: Request) => {
             `)
             .eq('therapist_id', user.id);
 
+          if (relationsError) {
+            console.error('Relations fetch error:', relationsError);
+            return new Response(JSON.stringify([]), {
+              headers: { 'Content-Type': 'application/json', ...corsHeaders }
+            });
+          }
+
           const cases = relations?.map(relation => ({
             client: relation.profiles,
             sessionCount: 0,
             lastSession: undefined,
             nextAppointment: undefined,
             assessments: [],
+            treatmentPlanId: undefined,
+            treatmentPlanTitle: undefined,
+            goals: [],
+            assignments: [],
             riskLevel: 'low',
-            progressSummary: 'No progress notes available'
+            progressSummary: 'No progress notes available',
+            caseNotes: '',
+            timeline: [],
+            checkpoints: [],
+            dischargeNotes: ''
           })) || [];
 
           return new Response(JSON.stringify(cases), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         } catch (error) {
+          console.error('Cases fetch error:', error);
           return new Response(JSON.stringify({ error: error.message }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         }
 
-      case '/create-treatment-plan':
+      case 'create-treatment-plan':
         if (req.method !== 'POST') {
           return new Response(JSON.stringify({ error: 'Method not allowed' }), {
             status: 405,
@@ -120,7 +136,7 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-      case '/add-goal':
+      case 'add-goal':
         if (req.method !== 'POST') {
           return new Response(JSON.stringify({ error: 'Method not allowed' }), {
             status: 405,
@@ -155,7 +171,7 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-      case '/assign-task':
+      case 'assign-task':
         if (req.method !== 'POST') {
           return new Response(JSON.stringify({ error: 'Method not allowed' }), {
             status: 405,
@@ -199,6 +215,7 @@ Deno.serve(async (req: Request) => {
         });
     }
   } catch (error) {
+    console.error('Function error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }

@@ -1,11 +1,5 @@
 import { supabase } from './supabase'
 
-const EDGE_FUNCTION_BASE_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL
-
-if (!EDGE_FUNCTION_BASE_URL) {
-  throw new Error('Missing Supabase Functions URL')
-}
-
 class APIService {
   private static async makeRequest(endpoint: string, options: RequestInit = {}) {
     try {
@@ -20,7 +14,10 @@ class APIService {
         headers['Authorization'] = `Bearer ${session.access_token}`
       }
 
-      const response = await fetch(`${EDGE_FUNCTION_BASE_URL}/${endpoint}`, {
+      const baseUrl = import.meta.env.VITE_SUPABASE_URL?.replace('/rest/v1', '') || ''
+      const functionsUrl = `${baseUrl}/functions/v1`
+
+      const response = await fetch(`${functionsUrl}/${endpoint}`, {
         ...options,
         headers
       })

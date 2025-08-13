@@ -6,17 +6,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
-interface TherapistDashboardData {
-  stats: {
-    totalClients: number
-    pendingAssessments: number
-    completedAssessments: number
-    upcomingAppointments: number
-  }
-  clients: any[]
-  recentActivity: any[]
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -47,27 +36,27 @@ Deno.serve(async (req: Request) => {
     }
 
     // Verify therapist role
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
 
-    if (profile?.role !== 'therapist') {
-      return new Response(JSON.stringify({ error: 'Access denied' }), {
+    if (profileError || profile?.role !== 'therapist') {
+      return new Response(JSON.stringify({ error: 'Access denied or profile not found' }), {
         status: 403,
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
     const url = new URL(req.url);
-    const path = url.pathname.replace('/therapist-operations', '');
+    const path = url.pathname.split('/').pop() || '';
 
     switch (path) {
-      case '/dashboard-data':
+      case 'dashboard-data':
         try {
-          // Get client relations
-          const { data: relations } = await supabase
+          // Get client relations with error handling
+          const { data: relations, error: relationsError } = await supabase
             .from('therapist_client_relations')
             .select(`
               client_id,
@@ -77,24 +66,37 @@ Deno.serve(async (req: Request) => {
             `)
             .eq('therapist_id', user.id);
 
+          if (relationsError) {
+            console.error('Relations fetch error:', relationsError);
+          }
+
           const clients = relations?.map(r => r.profiles).filter(Boolean) || [];
 
-          // Get assignments count
-          const { data: assignments } = await supabase
+          // Get assignments count with error handling
+          const { data: assignments, error: assignmentsError } = await supabase
             .from('form_assignments')
             .select('status')
             .eq('therapist_id', user.id);
 
-          const pendingAssessments = assignments?.filter(a => a.status === 'assigned').length || 0;
-          const completedAssessments = assignments?.filter(a => a.status === 'completed').length || 0;
+          if (assignmentsError) {
+            console.error('Assignments fetch error:', assignmentsError);
+          }
 
-          // Get upcoming appointments
-          const { data: appointments } = await supabase
+          const safeAssignments = assignments || [];
+          const pendingAssessments = safeAssignments.filter(a => a.status === 'assigned').length;
+          const completedAssessments = safeAssignments.filter(a => a.status === 'completed').length;
+
+          // Get upcoming appointments with error handling
+          const { data: appointments, error: appointmentsError } = await supabase
             .from('appointments')
             .select('id')
             .eq('therapist_id', user.id)
             .eq('status', 'scheduled')
             .gte('appointment_date', new Date().toISOString());
+
+          if (appointmentsError) {
+            console.error('Appointments fetch error:', appointmentsError);
+          }
 
           const stats = {
             totalClients: clients.length,
@@ -103,7 +105,7 @@ Deno.serve(async (req: Request) => {
             upcomingAppointments: appointments?.length || 0
           };
 
-          const dashboardData: TherapistDashboardData = {
+          const dashboardData = {
             stats,
             clients: clients.slice(0, 5), // Recent 5 clients
             recentActivity: []
@@ -113,15 +115,21 @@ Deno.serve(async (req: Request) => {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         } catch (error) {
-          return new Response(JSON.stringify({ error: error.message }), {
+          console.error('Dashboard data error:', error);
+          return new Response(JSON.stringify({ 
+            error: error.message,
+            stats: { totalClients: 0, pendingAssessments: 0, completedAssessments: 0, upcomingAppointments: 0 },
+            clients: [],
+            recentActivity: []
+          }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         }
 
-      case '/clients':
+      case 'clients':
         try {
-          const { data: relations } = await supabase
+          const { data: relations, error: relationsError } = await supabase
             .from('therapist_client_relations')
             .select(`
               client_id,
@@ -131,32 +139,52 @@ Deno.serve(async (req: Request) => {
             `)
             .eq('therapist_id', user.id);
 
+          if (relationsError) {
+            console.error('Relations fetch error:', relationsError);
+            return new Response(JSON.stringify({ clients: [], profilesMap: {} }), {
+              headers: { 'Content-Type': 'application/json', ...corsHeaders }
+            });
+          }
+
           const clients = relations?.map(r => r.profiles).filter(Boolean) || [];
 
-          // Get client profiles
+          // Get client profiles with error handling
           const clientIds = clients.map(c => c.id);
-          const { data: clientProfiles } = await supabase
-            .from('client_profiles')
-            .select('client_id, risk_level, presenting_concerns, notes')
-            .in('client_id', clientIds)
-            .eq('therapist_id', user.id);
+          let profilesMap = {};
+          
+          if (clientIds.length > 0) {
+            const { data: clientProfiles, error: profilesError } = await supabase
+              .from('client_profiles')
+              .select('client_id, risk_level, presenting_concerns, notes')
+              .in('client_id', clientIds)
+              .eq('therapist_id', user.id);
 
-          const profilesMap = clientProfiles?.reduce((acc, p) => {
-            acc[p.client_id] = p;
-            return acc;
-          }, {} as Record<string, any>) || {};
+            if (profilesError) {
+              console.error('Client profiles fetch error:', profilesError);
+            } else {
+              profilesMap = clientProfiles?.reduce((acc, p) => {
+                acc[p.client_id] = p;
+                return acc;
+              }, {} as Record<string, any>) || {};
+            }
+          }
 
           return new Response(JSON.stringify({ clients, profilesMap }), {
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         } catch (error) {
-          return new Response(JSON.stringify({ error: error.message }), {
+          console.error('Clients fetch error:', error);
+          return new Response(JSON.stringify({ 
+            error: error.message,
+            clients: [],
+            profilesMap: {}
+          }), {
             status: 500,
             headers: { 'Content-Type': 'application/json', ...corsHeaders }
           });
         }
 
-      case '/add-client':
+      case 'add-client':
         if (req.method !== 'POST') {
           return new Response(JSON.stringify({ error: 'Method not allowed' }), {
             status: 405,
@@ -168,13 +196,13 @@ Deno.serve(async (req: Request) => {
           const { email } = await req.json();
 
           // Check if user exists
-          const { data: existingUser } = await supabase
+          const { data: existingUser, error: userError } = await supabase
             .from('profiles')
             .select('id, role')
             .eq('email', email)
             .single();
 
-          if (!existingUser) {
+          if (userError || !existingUser) {
             return new Response(JSON.stringify({ 
               error: 'Client must register first. Please ask them to create an account.' 
             }), {
@@ -229,7 +257,7 @@ Deno.serve(async (req: Request) => {
           });
         }
 
-      case '/update-client-profile':
+      case 'update-client-profile':
         if (req.method !== 'PUT') {
           return new Response(JSON.stringify({ error: 'Method not allowed' }), {
             status: 405,
@@ -284,6 +312,7 @@ Deno.serve(async (req: Request) => {
         });
     }
   } catch (error) {
+    console.error('Function error:', error);
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }

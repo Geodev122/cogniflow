@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import { APIService } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
+import { supabase } from '../../lib/supabase'
 import {
   Users,
   Plus,
