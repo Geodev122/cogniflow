@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { APIService } from '../lib/api'
 
 interface Assignment {
   id: string
@@ -19,59 +19,45 @@ interface ProgressEntry {
   metric_type: string
 }
 
+interface ClientStats {
+  worksheets: number
+  assessments: number
+  exercises: number
+  completed: number
+}
+
 export const useClientData = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [progressData, setProgressData] = useState<ProgressEntry[]>([])
+  const [stats, setStats] = useState<ClientStats>({ worksheets: 0, assessments: 0, exercises: 0, completed: 0 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { profile } = useAuth()
 
   useEffect(() => {
-    if (profile?.id) {
+    if (profile?.id && profile.role === 'client') {
       fetchAllData()
     }
-  }, [profile?.id])
+  }, [profile?.id, profile?.role])
 
   const fetchAllData = async () => {
-    if (!profile?.id) return
+    if (!profile?.id || profile.role !== 'client') return
 
     setLoading(true)
     setError(null)
     
     try {
-      // Fetch assignments
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from('form_assignments')
-        .select('id, title, form_type, status, assigned_at, completed_at, instructions, due_date')
-        .eq('client_id', profile.id)
-        .order('assigned_at', { ascending: false })
-
-      if (assignmentError) {
-        console.error('Assignment fetch error:', assignmentError)
-        setAssignments([])
-      } else {
-        setAssignments(assignmentData || [])
-      }
-
-      // Fetch progress data
-      const { data: progressDataResult, error: progressError } = await supabase
-        .from('progress_tracking')
-        .select('recorded_at, value, metric_type')
-        .eq('client_id', profile.id)
-        .order('recorded_at', { ascending: true })
-
-      if (progressError) {
-        console.error('Progress fetch error:', progressError)
-        setProgressData([])
-      } else {
-        setProgressData(progressDataResult || [])
-      }
-
+      const data = await APIService.getClientDashboardData()
+      
+      setAssignments(data.assignments || [])
+      setProgressData(data.progressData || [])
+      setStats(data.stats || { worksheets: 0, assessments: 0, exercises: 0, completed: 0 })
     } catch (error) {
       console.error('Error fetching client data:', error)
       setError('Failed to load client data')
       setAssignments([])
       setProgressData([])
+      setStats({ worksheets: 0, assessments: 0, exercises: 0, completed: 0 })
     } finally {
       setLoading(false)
     }
@@ -79,17 +65,7 @@ export const useClientData = () => {
 
   const updateAssignment = async (assignmentId: string, status: string) => {
     try {
-      const { error } = await supabase
-        .from('form_assignments')
-        .update({
-          status,
-          completed_at: status === 'completed' ? new Date().toISOString() : null
-        })
-        .eq('id', assignmentId)
-
-      if (error) throw error
-
-      // Refresh assignments
+      await APIService.updateAssignment(assignmentId, status)
       await fetchAllData()
     } catch (error) {
       console.error('Error updating assignment:', error)
@@ -99,23 +75,7 @@ export const useClientData = () => {
 
   const completeAssignment = async (assignmentId: string, responses: any, score?: number) => {
     try {
-      // Update assignment status
-      await updateAssignment(assignmentId, 'completed')
-      
-      // Add to progress tracking if score provided
-      if (score !== undefined && profile?.id) {
-        const assignment = assignments.find(a => a.id === assignmentId)
-        await supabase
-          .from('progress_tracking')
-          .insert({
-            client_id: profile.id,
-            metric_type: assignment?.form_type || 'assessment',
-            value: score,
-            source_type: 'psychometric',
-            source_id: assignmentId
-          })
-      }
-
+      await APIService.updateAssignment(assignmentId, 'completed', responses, score)
       await fetchAllData()
     } catch (error) {
       console.error('Error completing assignment:', error)
@@ -126,6 +86,7 @@ export const useClientData = () => {
   return {
     assignments,
     progressData,
+    stats,
     loading,
     error,
     updateAssignment,

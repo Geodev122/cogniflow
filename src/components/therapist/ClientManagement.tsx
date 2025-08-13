@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabase'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { APIService } from '../../lib/api'
 import { useAuth } from '../../context/AuthContext'
 import {
   Users,
@@ -55,66 +55,13 @@ export const ClientManagement: React.FC = () => {
       return { clients: [], profilesMap: {}, hasMore: false, page: pageParam }
     }
 
-    let query = supabase
-      .from('therapist_client_relations')
-      .select(`
-        client_id,
-        profiles!therapist_client_relations_client_id_fkey (
-          id,
-          first_name,
-          last_name,
-          email,
-          created_at,
-          whatsapp_number,
-          patient_code
-        )
-      `, { count: 'exact' })
-      .eq('therapist_id', profile.id)
-      .range(pageParam * PAGE_SIZE, pageParam * PAGE_SIZE + PAGE_SIZE - 1)
-
-    if (debouncedSearch) {
-      query = query.or(
-        `profiles.first_name.ilike.%${debouncedSearch}%,profiles.last_name.ilike.%${debouncedSearch}%,profiles.email.ilike.%${debouncedSearch}%`
-      )
+    const data = await APIService.getTherapistClients()
+    return { 
+      clients: data.clients || [], 
+      profilesMap: data.profilesMap || {}, 
+      hasMore: false, 
+      page: pageParam 
     }
-
-    const { data: relations, error, count } = await query
-
-    if (error) {
-      throw error
-    }
-
-    const clientList = (relations || [])
-      .map((relation: { profiles: Client }) => relation.profiles)
-      .filter(Boolean)
-
-    let profilesMap: Record<string, ClientProfile> = {}
-    if (clientList.length > 0) {
-      const clientIds = clientList.map(c => c.id)
-      const { data: profiles } = await supabase
-        .from('client_profiles')
-        .select('client_id, risk_level, presenting_concerns, notes, intake_status, treatment_stage')
-        .in('client_id', clientIds)
-        .eq('therapist_id', profile.id)
-
-      if (profiles) {
-        profilesMap = profiles.reduce((acc, p) => {
-          acc[p.client_id] = {
-            risk_level: p.risk_level,
-            presenting_concerns: p.presenting_concerns,
-            notes: p.notes,
-            intake_status: p.intake_status,
-            treatment_stage: p.treatment_stage
-          }
-          return acc
-        }, {} as Record<string, ClientProfile>)
-      }
-    }
-
-    const totalCount = typeof count === 'number' ? count : clientList.length
-    const hasMore = (pageParam + 1) * PAGE_SIZE < totalCount
-
-    return { clients: clientList, profilesMap, hasMore, page: pageParam }
   }
 
   const {
@@ -196,67 +143,23 @@ export const ClientManagement: React.FC = () => {
 
   const addClientToRoster = async (clientData: { firstName: string; lastName: string; email: string; whatsappNumber: string }) => {
     try {
-      // Check if user already exists
-      const { data: existingUser } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', clientData.email)
-        .maybeSingle()
-      
-      if (existingUser) {
-        // Check if relationship already exists
-        const { data: existingRelation } = await supabase
-          .from('therapist_client_relations')
-          .select('id')
-          .eq('therapist_id', profile!.id)
-          .eq('client_id', existingUser.id)
-          .maybeSingle()
-        
-        if (existingRelation) {
-          alert('This client is already in your roster.')
-          return
-        }
-
-        // Create therapist-client relation
-        const { error: relationError } = await supabase
-          .from('therapist_client_relations')
-          .insert({
-            therapist_id: profile!.id,
-            client_id: existingUser.id
-          })
-
-        if (relationError) throw relationError
-      } else {
-        alert('Client must register first. Please ask them to create an account with this email: ' + clientData.email)
-        return
-      }
-
+      await APIService.addClientToRoster(clientData.email)
       await queryClient.invalidateQueries({ queryKey: ['clients', profile!.id] })
       setShowAddClient(false)
     } catch (error) {
       console.error('Error adding client:', error)
-      alert('Error adding client to roster. Please try again.')
+      alert(error instanceof Error ? error.message : 'Error adding client to roster. Please try again.')
     }
   }
 
   const updateClientProfile = async (clientId: string, updates: Record<string, unknown>) => {
     try {
-      const { error } = await supabase
-        .from('client_profiles')
-        .upsert({
-          client_id: clientId,
-          therapist_id: profile!.id,
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-
-      if (error) throw error
-
+      await APIService.updateClientProfile(clientId, updates)
       await queryClient.invalidateQueries({ queryKey: ['clients', profile!.id] })
       setShowClientDetails(false)
     } catch (error) {
       console.error('Error updating client profile:', error)
-      alert('Error updating client profile')
+      alert(error instanceof Error ? error.message : 'Error updating client profile')
     }
   }
 

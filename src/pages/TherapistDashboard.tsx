@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { TherapistOnboarding } from '../components/therapist/TherapistOnboarding'
-import { supabase } from '../lib/supabase'
+import { APIService } from '../lib/api'
 import { useAuth } from '../context/AuthContext'
 import {
   Users,
@@ -102,31 +102,8 @@ export const TherapistDashboard: React.FC = () => {
     if (!profile?.id) return
 
     try {
-      // Simple client count query
-      const { data: clientRelations, error } = await supabase
-        .from('therapist_client_relations')
-        .select('client_id')
-        .eq('therapist_id', profile.id)
-
-      if (error) {
-        console.error('Error fetching clients:', error)
-        setStats({
-          totalClients: 0,
-          pendingAssessments: 0,
-          completedAssessments: 0,
-          upcomingAppointments: 0
-        })
-        return
-      }
-
-      const totalClients = clientRelations?.length || 0
-
-      setStats({
-        totalClients,
-        pendingAssessments: 0,
-        completedAssessments: 0,
-        upcomingAppointments: 0
-      })
+      const data = await APIService.getTherapistDashboardData()
+      setStats(data.stats)
     } catch (error) {
       console.error('Error fetching dashboard stats:', error)
       setStats({
