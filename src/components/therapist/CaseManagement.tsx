@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import { CaseFormulation } from './CaseFormulation'
@@ -79,7 +79,8 @@ interface Assignment {
 }
 
 export const CaseManagement: React.FC = () => {
-  const [caseFiles, setCaseFiles] = useState<CaseFile[]>([])
+  const { profile } = useAuth()
+  const queryClient = useQueryClient()
   const [selectedCase, setSelectedCase] = useState<CaseFile | null>(null)
   type Tab = 'overview' | 'formulation' | 'goals' | 'assignments' | 'progress' | 'notes' | 'timeline' | 'discharge'
   const [activeTab, setActiveTab] = useState<Tab>('overview')
@@ -95,15 +96,15 @@ export const CaseManagement: React.FC = () => {
     }
   }, [profile])
 
+
   useEffect(() => {
     setDischargeNote(selectedCase?.dischargeNotes || '')
   }, [selectedCase])
 
   const fetchCaseFiles = async () => {
-    if (!profile) return
+    if (!profile) return []
 
     try {
-      // Simplified client fetching to avoid infinite loops
       const { data: relations, error } = await supabase
         .from('therapist_client_relations')
         .select(`
@@ -120,8 +121,7 @@ export const CaseManagement: React.FC = () => {
 
       if (error) {
         console.error('Error fetching relations:', error)
-        setCaseFiles([])
-        return
+        return []
       }
 
       // Fetch related case data for each client
@@ -167,14 +167,19 @@ export const CaseManagement: React.FC = () => {
         })
       )
 
-      setCaseFiles(cases)
+
+      return cases
     } catch (error) {
       console.error('Error fetching case files:', error)
-      setCaseFiles([])
-    } finally {
-      setLoading(false)
+      return []
     }
   }
+
+  const { data: caseFiles = [], isLoading, error } = useQuery({
+    queryKey: ['case-files', profile?.id],
+    queryFn: fetchCaseFiles,
+    enabled: !!profile?.id
+  })
 
   const handleCreatePlan = async () => {
     if (!selectedCase || !profile) return
@@ -194,7 +199,7 @@ export const CaseManagement: React.FC = () => {
       console.error('Error creating plan:', error)
       alert('Error creating treatment plan. Please try again.')
     } else {
-      fetchCaseFiles()
+      await queryClient.invalidateQueries({ queryKey: ['case-files', profile!.id] })
     }
   }
 
@@ -216,7 +221,7 @@ export const CaseManagement: React.FC = () => {
       console.error('Error adding goal:', error)
       alert('Error adding goal. Please try again.')
     } else {
-      fetchCaseFiles()
+      await queryClient.invalidateQueries({ queryKey: ['case-files', profile!.id] })
     }
   }
 
@@ -233,7 +238,7 @@ export const CaseManagement: React.FC = () => {
       console.error('Error updating goal:', error)
       alert('Error updating goal. Please try again.')
     } else {
-      fetchCaseFiles()
+      await queryClient.invalidateQueries({ queryKey: ['case-files', profile!.id] })
     }
   }
 
@@ -257,7 +262,7 @@ export const CaseManagement: React.FC = () => {
       .eq('id', goalId)
     
     if (!error) {
-      fetchCaseFiles()
+      await queryClient.invalidateQueries({ queryKey: ['case-files', profile!.id] })
     }
   }
 
@@ -352,10 +357,21 @@ export const CaseManagement: React.FC = () => {
     })
   }
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="flex items-center space-x-2">
+          <AlertTriangle className="w-5 h-5 text-red-600" />
+          <span className="text-red-800">{error instanceof Error ? error.message : 'Failed to load cases'}</span>
+        </div>
       </div>
     )
   }
@@ -519,10 +535,12 @@ export const CaseManagement: React.FC = () => {
         )}
 
         {activeTab === 'formulation' && (
-          <CaseFormulation 
-            caseFile={selectedCase}
-            onUpdate={fetchCaseFiles}
-          />
+          <React.Suspense fallback={<div>Loading...</div>}>
+            <CaseFormulation
+              caseFile={selectedCase}
+              onUpdate={() => queryClient.invalidateQueries({ queryKey: ['case-files', profile!.id] })}
+            />
+          </React.Suspense>
         )}
 
         {activeTab === 'goals' && (
