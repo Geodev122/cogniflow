@@ -248,6 +248,38 @@ export type Database = {
           updated_at?: string | null
         }
       }
+      therapist_insights_metrics: {
+        Row: {
+          id: string
+          therapist_id: string | null
+          patient_id: string | null
+          metric_type: string
+          metric_value: number | null
+          metric_context: any | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          therapist_id?: string | null
+          patient_id?: string | null
+          metric_type: string
+          metric_value?: number | null
+          metric_context?: any | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          therapist_id?: string | null
+          patient_id?: string | null
+          metric_type?: string
+          metric_value?: number | null
+          metric_context?: any | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+      }
     }
     Views: {
       progress_metrics: {
@@ -269,13 +301,6 @@ export type Database = {
           average_duration_seconds: number | null
           completed_sessions: number | null
           completion_rate: number | null
-        }
-      }
-      therapist_insights_metrics: {
-        Row: {
-          therapist_id: string | null
-          overdue_assessments: number | null
-          idle_clients: number | null
         }
       }
     }

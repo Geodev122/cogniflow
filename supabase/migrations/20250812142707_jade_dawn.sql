@@ -156,37 +156,8 @@ BEGIN
 END;
 $$;
 
--- Update therapist_insights_metrics view to be more efficient
+-- Remove deprecated therapist_insights_metrics view
 DROP VIEW IF EXISTS therapist_insights_metrics;
-CREATE VIEW therapist_insights_metrics AS
-SELECT 
-  p.id as therapist_id,
-  COALESCE(overdue.count, 0) as overdue_assessments,
-  COALESCE(idle.count, 0) as idle_clients
-FROM profiles p
-LEFT JOIN (
-  SELECT 
-    fa.therapist_id,
-    COUNT(*) as count
-  FROM form_assignments fa
-  WHERE fa.status = 'assigned' 
-    AND fa.due_date < CURRENT_DATE
-  GROUP BY fa.therapist_id
-) overdue ON overdue.therapist_id = p.id
-LEFT JOIN (
-  SELECT 
-    tcr.therapist_id,
-    COUNT(DISTINCT tcr.client_id) as count
-  FROM therapist_client_relations tcr
-  WHERE NOT EXISTS (
-    SELECT 1 FROM appointments a 
-    WHERE a.client_id = tcr.client_id 
-      AND a.therapist_id = tcr.therapist_id 
-      AND a.appointment_date > (now() - interval '30 days')
-  )
-  GROUP BY tcr.therapist_id
-) idle ON idle.therapist_id = p.id
-WHERE p.role = 'therapist';
 
 -- Create function to handle client creation safely
 CREATE OR REPLACE FUNCTION create_client_account(
