@@ -45,131 +45,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initializingRef = useRef(false)
   const mountedRef = useRef(true)
 
-  // Direct profile fetching with timeout and retry
-  const fetchProfileDirect = async (userId: string, retries = 2): Promise<Profile | null> => {
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        console.log(`🔍 Fetching profile for user: ${userId} (attempt ${attempt + 1}/${retries + 1})`)
-        
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
-        
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select(`
-            id, 
-            role, 
-            first_name, 
-            last_name, 
-            email,
-            whatsapp_number,
-            password_set,
-            created_by_therapist,
-            professional_details,
-            verification_status,
-            created_at,
-            updated_at
-          `)
-          .eq('id', userId)
-          .abortSignal(controller.signal)
-          .single()
-
-        clearTimeout(timeoutId)
-
-        if (profileError) {
-          console.error(`❌ Profile fetch error (attempt ${attempt + 1}):`, profileError)
-          
-          // If profile doesn't exist, try to create one
-          if (profileError.code === 'PGRST116' && attempt === 0) {
-            console.log('📝 Profile not found, attempting to create...')
-            
-            const { data: { user: authUser } } = await supabase.auth.getUser()
-            if (authUser?.user_metadata) {
-              const metadata = authUser.user_metadata
-              
-              const newProfile = {
-                id: userId,
-                role: metadata.role || 'client',
-                first_name: metadata.first_name || 'Unknown',
-                last_name: metadata.last_name || 'User',
-                email: authUser.email || '',
-                password_set: true
-              }
-
-              const { data: createdProfile, error: createError } = await supabase
-                .from('profiles')
-                .insert(newProfile)
-                .select()
-                .single()
-
-              if (!createError && createdProfile) {
-                console.log('✅ Profile created successfully:', createdProfile)
-                return createdProfile
-              }
-            }
-          }
-          
-          if (attempt === retries) {
-            throw profileError
-          }
-          
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
-          continue
-        }
-
-        console.log('✅ Profile fetched successfully:', profileData)
-        return profileData
-      } catch (error: any) {
-        console.error(`❌ Profile fetch attempt ${attempt + 1} failed:`, error)
-        
-        if (error.name === 'AbortError') {
-          console.log('⏰ Profile fetch timed out')
-        }
-        
-        if (attempt === retries) {
-          console.error('❌ All profile fetch attempts failed')
-          return null
-        }
-        
-        // Wait before retry
-        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)))
-      }
-    }
-    
-    return null
-  }
-
-  // Simplified session check with timeout
-  const checkSession = async (): Promise<{ user: User | null; error: any }> => {
+  // Direct profile fetching with timeout
+  const fetchProfile = async (userId: string): Promise<Profile | null> => {
     try {
-      console.log('🔍 Checking session...')
+      console.log(`🔍 Fetching profile for user: ${userId}`)
       
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
       
-      const sessionPromise = supabase.auth.getSession()
-      const result = await Promise.race([
-        sessionPromise,
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session check timeout')), 5000)
-        )
-      ]) as any
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select(`
+          id, 
+          role, 
+          first_name, 
+          last_name, 
+          email,
+          whatsapp_number,
+          password_set,
+          created_by_therapist,
+          professional_details,
+          verification_status,
+          created_at,
+          updated_at
+        `)
+        .eq('id', userId)
+        .abortSignal(controller.signal)
+        .single()
 
       clearTimeout(timeoutId)
-      
-      const { data: { session }, error } = result
-      
-      if (error) {
-        console.error('❌ Session check error:', error)
-        return { user: null, error }
+
+      if (profileError) {
+        console.error(`❌ Profile fetch error:`, profileError)
+        return null
       }
-      
-      console.log('✅ Session check completed:', session?.user?.id || 'No session')
-      return { user: session?.user || null, error: null }
+
+      console.log('✅ Profile fetched successfully:', profileData)
+      return profileData
     } catch (error: any) {
-      console.error('❌ Session check failed:', error)
-      return { user: null, error }
+      console.error(`❌ Profile fetch failed:`, error)
+      return null
     }
   }
 
@@ -185,19 +100,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null)
       console.log('🚀 Initializing auth...')
 
-      // Check session with timeout
-      const { user: sessionUser, error: sessionError } = await checkSession()
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
       if (sessionError) {
         console.error('❌ Session error:', sessionError)
-        // Don't throw, just set no user
         setUser(null)
         setProfile(null)
-        setError(null) // Clear error for offline mode
+        setError(null)
         return
       }
 
-      if (!sessionUser) {
+      if (!session?.user) {
         console.log('ℹ️ No active session found')
         setUser(null)
         setProfile(null)
@@ -205,11 +119,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return
       }
 
-      console.log('✅ Active session found for user:', sessionUser.id)
-      setUser(sessionUser)
+      console.log('✅ Active session found for user:', session.user.id)
+      setUser(session.user)
 
-      // Fetch profile with retries
-      const profileData = await fetchProfileDirect(sessionUser.id)
+      // Fetch profile
+      const profileData = await fetchProfile(session.user.id)
       
       if (profileData) {
         console.log('✅ Profile loaded successfully')
@@ -223,17 +137,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     } catch (error: any) {
       console.error('❌ Error initializing auth:', error)
-      
-      // Set user to null but don't show error for network issues
       setUser(null)
       setProfile(null)
-      
-      // Only show error for non-network issues
-      if (!error.message?.includes('timeout') && !error.message?.includes('fetch')) {
-        setError(error.message || 'Authentication service unavailable')
-      } else {
-        setError(null) // Allow offline mode
-      }
+      setError(null) // Don't show errors to avoid refresh loops
     } finally {
       setLoading(false)
       initializingRef.current = false
@@ -248,7 +154,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       console.log('🔄 Refreshing profile for user:', user.id)
-      const profileData = await fetchProfileDirect(user.id)
+      const profileData = await fetchProfile(user.id)
       if (profileData) {
         setProfile(profileData)
         console.log('✅ Profile refreshed successfully')
@@ -261,46 +167,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     mountedRef.current = true
     
-    // Initialize auth immediately
+    // Initialize auth once
     initializeAuth()
 
-    // Listen for auth state changes
+    // Listen for auth state changes - SIMPLIFIED
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mountedRef.current) return
 
-      console.log('🔄 Auth state change:', event, session?.user?.id)
+      console.log('🔄 Auth state change:', event)
 
-      try {
-        if (event === 'SIGNED_OUT') {
-          console.log('👋 User signed out')
-          setUser(null)
-          setProfile(null)
-          setError(null)
-        } else if (event === 'SIGNED_IN' && session?.user) {
-          console.log('👋 User signed in:', session.user.id)
-          setUser(session.user)
-          
-          // Fetch fresh profile data
-          const profileData = await fetchProfileDirect(session.user.id)
-          if (profileData) {
-            setProfile(profileData)
-          }
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          console.log('🔄 Token refreshed for user:', session.user.id)
-          setUser(session.user)
+      // Only handle specific events to prevent loops
+      if (event === 'SIGNED_OUT') {
+        console.log('👋 User signed out')
+        setUser(null)
+        setProfile(null)
+        setError(null)
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        console.log('👋 User signed in:', session.user.id)
+        setUser(session.user)
+        
+        // Fetch profile only on sign in
+        const profileData = await fetchProfile(session.user.id)
+        if (profileData) {
+          setProfile(profileData)
         }
-      } catch (error) {
-        console.error('❌ Auth state change error:', error)
       }
+      // Removed TOKEN_REFRESHED handling to prevent loops
     })
 
     return () => {
       mountedRef.current = false
       subscription.unsubscribe()
     }
-  }, [])
+  }, []) // Empty dependency array - only run once
 
   const retryAuth = () => {
     console.log('🔄 Manual auth retry triggered')
@@ -331,18 +232,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Authentication failed - no user or session returned')
       }
 
-      console.log('✅ Sign in successful, fetching profile...')
-      setUser(data.user)
-      
-      // Fetch profile directly
-      const profileData = await fetchProfileDirect(data.user.id)
-      if (profileData) {
-        setProfile(profileData)
-        console.log('✅ Profile loaded after sign in')
-      } else {
-        console.warn('⚠️ Profile not found after sign in')
-        setProfile(null)
-      }
+      console.log('✅ Sign in successful')
+      // Don't set user/profile here - let auth state change handle it
       
     } catch (error: any) {
       console.error('❌ Sign in error:', error)
@@ -388,7 +279,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       console.log('✅ Sign up successful for user:', data.user.id)
-      setUser(data.user)
       
     } catch (error: any) {
       console.error('❌ Sign up error:', error)
